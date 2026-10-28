@@ -1,0 +1,327 @@
+================================================================================
+ИНСТРУКЦИЯ ДЛЯ ИИ-АГЕНТА / РАЗРАБОТЧИКА (Проект RaftTrainer)
+================================================================================
+
+1. ОБЗОР ПРОЕКТА
+----------------
+Этот проект — встроенный внутриигровой трейнер / мод-меню для игры Raft (Unity C#).
+Код компилируется в одну управляемую сборку RaftTrainer.dll.
+Сборка загружается игрой автоматически при старте через вызов из Assembly-CSharp.dll:
+  RaftTrainer.TrainerGUI.Init()
+
+2. РАСПОЛОЖЕНИЕ ФАЙЛОВ
+----------------------
+Папка проекта:
+  C:\Users\wokiw\OneDrive\Desktop\RaftTrainer_Project\
+
+Основные файлы:
+  - RaftTrainer.cs:
+      Ядро тренера (частичный класс TrainerGUI): состояния читов v8-v11, Update(),
+      рефлексия, механики боя/движения/автоматизации, спавнер-каталог.
+  - RaftTrainer.Esp.cs:
+      Новый оптимизированный ESP (v12): раздельные троттлинги по типам (игроки 1с,
+      акулы 0.7с, лут 0.5с, клады 2с, острова 3с), единый проход FindObjectsOfType<PickupItem>
+      с сортировкой по дистанции, кэш русских имён, максимум 70 меток с отсечением по экрану,
+      отрисовка линейки и выделенных блоков.
+  - RaftTrainer.Menu.cs:
+      Интерфейс v12: стили, InitStyles, OnGUI, таб-меню (10 разделов), HUD-оверлеи
+      (активные читы, статистика, компас, погода, миникарта, журнал, тревога акул).
+  - RaftTrainer.V12.cs:
+      Логика v12: профили, горячие клавиши, автопилот (Raft.AddForce), макро-рутина,
+      линейка, выделение блоков, план плота, снимок инвентаря, авто-заряд, авто-мусорка,
+      режим шторма, сигнализация акул, фото-режим, экспорт/импорт точек, статистика.
+  - RaftTrainer.V13.cs:
+      Логика v13: тахометр производительности (FPS-график, сущности, блоки), ESP-трассеры,
+      след акул (30 сек), ESP урожая (Plant.FullyGrown/growTime), дашборд машин плота
+      (Fuel.GetFuelCount/MaxFuel/IsBurning + BatteryCharger), анти-шторм автопилот,
+      авто-дозаправка (Fuel.AddFuel + инвентарь сундуков), быстрые слоты позиции x3,
+      ТП к кладу, помощник крафта (ItemInstance_Recipe.NewCost + CostMultiple), калькулятор
+      стройки, фильтры/чёрный список ESP-лута, расширенная статистика, сортировка сумки (O),
+      автозагрузка профиля, прозрачность/сворачивание меню, быстрая ночь (AzureSky.IsDaytime).
+  - RaftTrainer.V14.cs:
+      Логика v14: глобальная карта мира (сетка 200 м, кольца 250/500/1000 м, блипы
+      островов/кладов/акул/игроков/плота/точек с прижимом к краю), умные напоминания
+      (урожай/топливо/батарейки/погода), счётчик добытых ресурсов (дельты инвентаря),
+      авто-сбор гнёзд (BirdsNest), авто-посадка семян (PlantManager.allCropplots),
+      авто-сканер радара (SetRadarFrequency 0..7), рыбалка 2.0 (EquipBait + PullItemsFromSea),
+      калькулятор биореактора (Tank_BiofuelExtractor), фильтры магнита лута (IsMagnetAllowed),
+      спасательный крюк (возврат на плот), тепловизор (хищники сквозь стены), крысолов
+      (Network_Host.DamageEntity), питомцы всегда сыты (_hungerTimer=0), копир этажа
+      (выделенные блоки -> вставка этажом выше), HUD таблица игроков (мультиплеер).
+  - RaftTrainer.csproj:
+      Файл проекта Visual Studio / C# со ссылками на сборки игры из D:\Raft\Raft_Data\Managed\.
+  - build.bat:
+      Скрипт компиляции в 1 клик через csc.exe (компилирует ВСЕ 6 .cs файлов).
+      Сразу копирует DLL в игру и на Рабочий стол.
+  - RaftTrainer.v11.cs.bak:
+      Резервная копия монолитной версии v11 (для отката).
+
+Целевая папка игры Raft:
+  D:\Raft\Raft_Data\Managed\
+  Основной файл DLL в игре: D:\Raft\Raft_Data\Managed\RaftTrainer.dll
+  Резервный файл DLL на рабочем столе: C:\Users\wokiw\Desktop\RaftTrainer.dll
+
+3. КАК КОМПИЛИРОВАТЬ И ПРИМЕНЯТЬ ИЗМЕНЕНИЯ
+------------------------------------------
+Для сборки достаточно запустить build.bat:
+  cd /d C:\Users\wokiw\OneDrive\Desktop\RaftTrainer_Project && build.bat
+  (ВАЖНО: build.bat НЕ делает cd сам — запускать из папки проекта!)
+
+Или выполнить команду компилятора (все 6 исходников + ссылка на ScreenCaptureModule):
+  C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:library /out:RaftTrainer.dll /optimize+ /reference:"D:\Raft\Raft_Data\Managed\UnityEngine.dll","D:\Raft\Raft_Data\Managed\UnityEngine.CoreModule.dll","D:\Raft\Raft_Data\Managed\UnityEngine.IMGUIModule.dll","D:\Raft\Raft_Data\Managed\UnityEngine.InputLegacyModule.dll","D:\Raft\Raft_Data\Managed\UnityEngine.InputModule.dll","D:\Raft\Raft_Data\Managed\UnityEngine.PhysicsModule.dll","D:\Raft\Raft_Data\Managed\UnityEngine.UI.dll","D:\Raft\Raft_Data\Managed\UnityEngine.TextRenderingModule.dll","D:\Raft\Raft_Data\Managed\UnityEngine.AudioModule.dll","D:\Raft\Raft_Data\Managed\UnityEngine.ScreenCaptureModule.dll","D:\Raft\Raft_Data\Managed\Assembly-CSharp.dll","D:\Raft\Raft_Data\Managed\Assembly-CSharp-firstpass.dll" RaftTrainer.cs RaftTrainer.Esp.cs RaftTrainer.Menu.cs RaftTrainer.V12.cs RaftTrainer.V13.cs RaftTrainer.V14.cs
+
+После компиляции скрипт автоматически обновляет:
+  1) D:\Raft\Raft_Data\Managed\RaftTrainer.dll (активная игра)
+  2) C:\Users\wokiw\Desktop\RaftTrainer.dll (копия на рабочем столе)
+
+4. ПРАВИЛА И СТАНДАРТЫ КОДА ДЛЯ ИИ
+----------------------------------
+- Совместимость C#:
+    Целевой компилятор поддерживает C# 5.0 - 7.3 (.NET Framework 4.0 / 4.7.2).
+    НЕ используйте фичи C# 8.0+ (nullable-аннотации '?', switch-выражения '=>', 'is not null').
+- Система GUI:
+    Использует Unity IMGUI в OnGUI().
+    КРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не вызывайте методы GUILayout или GUI внутри метода Update() или вне OnGUI(). Это вызывает исключение InvalidOperationException в Unity.
+- Производительность и таймеры (Троттлинг):
+    НЕ вызывайте тяжелые методы вроде FindObjectsOfType<T>() каждый кадр в Update() или OnGUI().
+    Любые сканирования мира (грядки, животные, акулы, клады, сундуки, батарейки) ОБЯЗАНЫ быть на таймере с интервалом от 0.35с:
+      if (Time.time > nextThrottleTime) { nextThrottleTime = Time.time + 0.35f; ... }
+    Для рендера ESP используйте кэшированные списки (cachedSharksInfo, cachedPickups, cachedTreasures, cachedOres).
+- Рефлексия (Reflection):
+    Все приватные поля игры кэшируются один раз при старте в static readonly FieldInfo:
+      private static readonly FieldInfo fSharkCanAttack = typeof(Shark).GetField("canAttack", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+- Защита от сбоев (Try-Catch):
+    Любое обращение к игровым объектам оборачивайте в try { ... } catch {}, чтобы ошибка на одном объекте не роняла весь трейнер.
+
+5. КАК ДОБАВИТЬ НОВУЮ ФУНКЦИЮ (ПОШАГОВО)
+----------------------------------------
+Шаг 1: Объявить переменную / переключатель в классе TrainerGUI:
+    public bool myFeature = false;
+    public float myValue = 10f;
+
+Шаг 2: Если нужен доступ к приватным полям игры, объявить кэш FieldInfo в начале класса:
+    private static readonly FieldInfo fTarget = typeof(TargetClass).GetField("fieldName", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+
+Шаг 3: Написать метод реализации:
+    private void ApplyMyFeature(Network_Player player)
+    {
+        try
+        {
+            if (player == null) return;
+            // Ваша логика
+        }
+        catch {}
+    }
+
+Шаг 4: Вызвать метод в Update():
+    if (myFeature) ApplyMyFeature(player);
+    // Или внутри блока троттлинга, если метод сканирует объекты сцены.
+
+Шаг 5: Добавить кнопку или тумблер в соответствующий таб интерфейса (RaftTrainer.Menu.cs):
+    myFeature = DrawModuleToggle("Моя функция", myFeature);
+    Если нужно, чтобы фича появилась в глобальном поиске, HUD активных читов и профилях —
+    добавьте русскую подпись в словарь featureLabels (RaftTrainer.V12.cs).
+    ЛЮБОЕ новое публичное bool/float/int поле автоматически попадает в профили
+    (SaveProfileFile сериализует все публичные поля через рефлексию).
+
+6. СТРУКТУРА ТАБ-МЕНЮ (v12, RaftTrainer.Menu.cs)
+---------------------------
+Меню переделано: вместо 8 колонок — ОДНО окно с полосой из 10 табов, поиском
+по всем разделам (поле "Поиск" в шапке ищет тумблеры по всем табам сразу)
+и статус-баром снизу.
+- Таб 0 "БОЙ" (DrawCombatTab):
+    Ван-хит, множитель урона, аура хищников, мирная акула, триггербот, мультишот лука,
+    лазерные стрелы, вечные стрелы, режим призрака, вечная приманка, оседлать акулу,
+    лук без задержки, гарпун с вечными сетями, силовой импульс, аимботы (звери/вещи/всегда,
+    радиус, FOV, плавность), турбо-крюк, быстрый топор, уничтожить врагов.
+- Таб 1 "БЕГ" (DrawMovementTab):
+    Полёт, без урона падения, зиплайн в воздухе, супер-дайвинг, подводный скутер,
+    бесконечный кислород, орлиный взор, супер-скорость, супер-прыжок, дрон-камера,
+    телепорты, точки телепорта (до 10, экспорт/импорт в файл).
+- Таб 2 "ВИЗУАЛ" (DrawVisualsTab):
+    ESP (игроки, акула, руда, клады, вещи, бочки), дистанции, прозрачная вода, ночное
+    зрение, прожектор, вечный детектор, подсветка каркаса, усилитель звука, радар частот.
+- Таб 3 "ИГРОК" (DrawPlayerTab):
+    Год-мод, бесконечные потребности, вечная прочность, бесплатный крафт/стройка,
+    стройка без опор, умная выгрузка, взлом дверей, удалённый сундук, дупликатор,
+    сюжетки, заметки, персонажи, чертежи + НОВОЕ: снимок/восстановление инвентаря.
+- Таб 4 "ПЛОТ" (DrawRaftTab):
+    Всё из v11 (снос, неразрушимый плот, трубы, заморозка, ветер, турбо, краска,
+    антикрен, штиль, опреснитель, ремонт, укрепление, расширение, якорь, палитра,
+    мусорный дождь, дрейф) + НОВОЕ: автопилот (остров/точка, тяга), строительная
+    линейка A-B, выделение блоков ЛКМ (починить/краска/снести), копия плота
+    фундаментов и вставка со сдвигом.
+- Таб 5 "ФЕРМА" (DrawFarmingTab):
+    Всё из v11 + НОВОЕ: Режим Шторма (бесконечная гроза).
+- Таб 6 "АВТО" (DrawAutoTab):
+    Якорь у острова, авто-гриль, авто-плавильня, зиплайн+сбор + НОВОЕ:
+    авто-заряд батареек (RechargeBattery), авто-выброс мусора (ID-фильтры),
+    макро-рутина (7 шагов: ТП → ремонт → сортировка → сетки → звери → полив → рост).
+- Таб 7 "СИСТЕМА" (DrawSystemTab):
+    Профили настроек (сохранение/загрузка в RaftTrainer_Profiles/*.txt, все публичные
+    поля + бинды), горячие клавиши (9 действий, перебинживание кликом), HUD-индикаторы
+    (активные читы, статистика, компас, погода, миникарта, журнал), фото-режим и
+    скриншот без интерфейса, сигнализация акул (радиус + звуковой бип), экспорт/импорт точек.
+- Таб 8 "СПАВНЕР" (DrawSpawnerTab):
+    Каталог с иконками, категории, поиск, количество + НОВОЕ: 3 личных набора-пресета
+    (запомнить выбранный предмет и выдать пачкой), кисть животных.
+- Таб 9 "ЛОГ" (DrawLogTab):
+    Журнал событий (последние 200, зеркалит статус-строку), статистика сессии
+    (время, собрано предметов, пройдено пути), сброс.
+- Доработки v14 по табам: ВИЗУАЛ — «Глобальная карта мира» (+зум), тепловизор,
+  авто-сканер радара; ФЕРМА — фильтры магнита (еда/металл/редкое), авто-сбор гнёзд,
+  авто-посадка семян (+ключи ID), питомцы всегда сыты, крысолов (счётчик), калькулятор
+  биореактора (+слайдер «сырья на 1 топливо»); АВТО — Рыбалка 2.0 (+ключ наживки);
+  ПЛОТ — «Копир этажа» (копировать/вставить этажом выше + смещение 1.5-6 м) после
+  секции выделения блоков; БЕГ — спасательный крюк (+задержка возврата); СИСТЕМА —
+  умные напоминания, HUD таблица игроков; ЛОГ — «Добыто ресурсов» (топ-12) и счётчик крыс.
+- HUD-оверлеи v14 (рисуются и при открытом меню): карта мира (правый НИЖНИЙ угол,
+  т.к. правый верх занят сессией/дашбордом машин/таблицей игроков) и таблица игроков
+  (правый верх, y=192, под дашбордом машин).
+
+7. ГОРЯЧИЕ КЛАВИШИ В ИГРЕ
+-------------------------
+- F4 или Insert: Открыть/Скрыть меню трейнера (по умолчанию при запуске игры меню скрыто)
+- F1: Бессмертие вкл/выкл (перебинживается в табе СИСТЕМА)
+- F2: Полёт вкл/выкл
+- F5: Телепорт на плот
+- F6: Скриншот без интерфейса (фото-режим можно включить в СИСТЕМА)
+- F7: Запуск макро-рутины (7 бытовых действий подряд)
+- F8: Возврат в слот позиции 1 (запомнить слот можно в табе БЕГ)
+- F9: Автопилот плота вкл/выкл (курс на ближайший остров, якорь по прибытии)
+- F10: Строительная линейка вкл/выкл (ЛКМ ставит точки A и B, показывает расстояние)
+- F12: ESP вкл/выкл
+- O: Сортировка инвентаря (перебинживается, по умолчанию O)
+- Z (зажать): Зум камеры (Eagle Eye Zoom)
+- X или ПКМ (зажать): Захват цели аимботом (на животных / акулу / предметы)
+- WASD + Space (Вверх) + Левый Ctrl (Вниз): Управление в режиме полета (Fly Mode)
+- Space + W в воздухе: Планирование в свободном полете по воздуху (Zipline Air)
+- ЛКМ (при закрытом меню): кисть животных / линейка / выделение блоков — в зависимости
+  от включенного инструмента (приоритет: кисть → выделение → линейка)
+- W под водой (при включенном подводном скутере): рывок вперед по взгляду
+- WASD / Space / Ctrl (при оседланной акуле): управление акулой
+- Все F-клавиши выше можно переназначить в табе СИСТЕМА (клик по кнопке клавиши).
+
+8. ЗАМЕТКИ ПО API ИГРЫ (v12)
+----------------------------
+- Все новые API взяты из Assembly-CSharp.dll (дамп через рефлексию). Приватные поля/методы
+  вызываются через FieldInfo / MethodInfo, кэшированные как static readonly:
+    ThrowableComponent.throwDelay, ThrowableComponent.chargeMeter, ChargeMeter.chargeSpeed,
+    Network_Host.hostEntities (CreateAINetworkBehaviour), Block_CookingStand.fuel,
+    WaterRoughnessManager.roughness / maxRoughness (static), ThrowableComponent_NetGun.SetIsReloaded / ResetShotCooldown,
+    BatteryCharger.RechargeBattery(Battery) [private] + публичные batteryL/batteryR/fuelTank.
+- Публичные API v12 (без рефлексии):
+    Raft.AddForce(Vector3 dir, float force, ForceMode, bool throughAnchor) — автопилот;
+    Raft.AddAnchor(bool, object) — якорь по прибытии автопилота;
+    WeatherManager.GetCurrentWeatherType() (enum UniqueWeatherType) и свойство WeatherTimer
+      (float, секунды до смены погоды) — HUD погоды;
+    Inventory.GetRGDSlots() / SetSlotsFromRGD(RGD_Slot[]) — снимок инвентаря;
+    BlockCreator.CreateBlockCheat(item, localPos, rot, DPS, hotbar) — вставка плана плота;
+    Block_Foundation — фильтр фундаментов при копии плана;
+    ScreenCapture.CaptureScreenshot(name) — фото-режим (Application.CaptureScreenshot
+      объявлен [Obsolete(error)] в этой сборке Unity — НЕ использовать!).
+- Звук: сигнализация акул синтезирует бип через AudioClip.Create + SetData (sine 880 Гц),
+  AudioSource.PlayOneShot; нужна сборка UnityEngine.AudioModule.dll.
+- Профили пишутся в RaftTrainer_Profiles/*.txt относительно папки игры; точки — в
+  RaftTrainer_Waypoints.txt; скриншоты — в корень игры (RaftTrainer_Photo_*.png).
+- Не проверено в игре (см. статус в меню): автопилот (тяга ForceMode.Acceleration может
+  потребовать подбора коэффициента), вставка плана (CreateBlockCheat со сдвигом),
+  снимок инвентаря (RGD-слоты при обычной смерти могут не совпасть), погодный таймер
+  (WeatherTimer может идти в другую сторону), авто-якорь, авто-гриль/плавильня,
+  палитра HEX (SO_ColorValue в рантайме), усилитель звука (FMOD), штиль.
+
+9. ЗАМЕТКИ ПО API ИГРЫ (v13)
+----------------------------
+- Расширение плота (+3x3/+5x5) ПЕРЕПИСАНО в v13: старый код передавал ЛОКАЛЬНУЮ позицию
+  в статический SnapBuildPosition (который работает с МИРОВЫМИ координатами) и накапливал
+  ошибку float-шагом — из-за этого блоки не ставились. Новый алгоритм (BatchExpandRaftFoundations
+  + TryPlaceExpanded в RaftTrainer.cs): local -> raft.transform.TransformPoint -> SnapBuildPosition
+  -> InverseTransformPoint, защита от дублей по ключу (x/z в половинках клетки), высота baseY
+  берётся из существующего Block_Foundation, есть резервный путь наращивания от крайних
+  фундаментов ровным шагом BlockCreator.BlockSize. Та же схема снапа применена в PasteRaftBlueprint.
+- Fuel (компонент машин): GetFuelCount(), MaxFuel, AddFuel(int), IsBurning() — публичные.
+  Инвентарь сундука: Storage_Small.GetInventoryReference() -> Inventory.GetItemCount("Plank") /
+  RemoveItem("Plank", 1). Используется авто-дозаправкой и дашбордом машин.
+- Урожай: Plant.FullyGrown(), GetGrowTimer(), growTime (публичные) — ESP урожая в процентах.
+- Погода/ночь: UnityEngine.AzureSky.AzureSkyController.IsDaytime — быстрая ночь ускоряет
+  Time.timeScale только когда ночь; при наступлении дня возвращает 1.0.
+- Статистика v13: убийства акул по stat_health.IsDead() у Shark, смерти по player.Stats,
+  острова по близости к Landmark (<150м, HashSet по GetInstanceID), потеря блоков по дельте
+  количества Block (обновляется раз в 3 сек для тахометра).
+- Помощник крафта: Item_Base.settings_recipe (ItemInstance_Recipe): Learned, NewCost (CostMultiple[]),
+  CostMultiple.HasEnoughInInventory(Inventory). ItemManager.GetAllItems() [static].
+- Калькулятор стройки: считает клетки кольца по RaftBounds.HalfWidth/HalfLength в клетках
+  (целочисленно) и умножает рецепт Foundation.
+- GUIUtility.RotateAroundPivot(angle, pivot) — порядок аргументов ИМЕННО такой (угол первым).
+- Новые бинды v13: sortinv (O), recall1 (F8), recall2/recall3 (пусто). Слоты позиции хранятся
+  в памяти (не сериализуются).
+
+10. ЗАМЕТКИ ПО API ИГРЫ (v14)
+-----------------------------
+- Файл RaftTrainer.V14.cs — ШЕСТОЙ исходник в build.bat; хук UpdateV14Features(player)
+  вызывается в Update() ядра сразу после UpdateV13Features(player).
+- Глобальная карта (DrawWorldMapHud/DrawMapBlips/DrawMapCircle/DrawMapSegment): north-up
+  (x -> вправо, z -> вверх), игрок в центре, сетка каждые 200 м, кольца 250/500/1000 м;
+  блипы из ESP-кэшей (cachedLandmarks/cachedTreasures/cachedSharksInfo) + v14Players/cachedRaft/
+  waypoints; далёкие цели прижимаются к краю панели (alpha 0.45). Отрисовка сегментов через
+  GUIUtility.RotateAroundPivot + texWhiteDot.
+- Умные напоминания: UpdateReminders читает cropTags (метки с текстом «ГОТОВ»), поэтому в
+  V13.UpdateCropEsp условие раннего выхода изменено на (!espCrops && !smartReminders);
+  двигатели/зарядки — из кэша дашборда машин (enginesFuel/chargersWithBattery);
+  погода — cachedWeather.WeatherTimer < 45 с.
+- Гнёзда: BirdsNest.AllNests [static], HasEgg/HasFeather, PickupEgg/PickupFeather(Network_Player).
+- Авто-посадка (НЕ проверено в игре): PlantManager.allCropplots [static], Cropplot.IsFull,
+  Cropplot.GetSlots() -> List<PlantationSlot> (.busy), PlantManager.GetPlantByIndex(int),
+  Cropplot.PlantSeed(Plant, uint, bool water, int slotIndex); objectIndex =
+  (uint)abs(Item_Base.UniqueIndex) — маппинг семени на растение под вопросом; после посадки
+  семя списывается player.Inventory.RemoveItem(UniqueName, 1).
+- Радар: авто-цикл SetRadarFrequency(0..7) каждые 5 сек (внутри Reciever.SetFrequencyIndexCheat);
+  коды частот берутся из GetFrequencyCode (ядро).
+- Рыбалка 2.0: FishingBaitHandler.EquipBait(Item_Base)/CurrentBait (публичные), наживка
+  ищется в инвентаре по подстроке ID (baitKeyword); подсечка — FishingRod.PullItemsFromSea
+  (рефлексия, кэш mPullItems из ядра), шаг 1.6 с.
+- Биореактор: Tank_BiofuelExtractor (CurrentTankAmount/maxCapacity наследуются от Tank),
+  FindObjectOfType кэшируется на 3 с; расход сырья задаёт biofuelRawPerUnit (0.01-1).
+- Фильтр магнита: IsMagnetAllowed(PickupItem) (V14) вызывается из ядра ApplyItemMagnet:
+  dist < magnetRadius && dist > 1.2f && IsMagnetAllowed(p); категории определяются по англ.
+  ID предмета и русскому имени GetRussianItemName; если все фильтры выключены — магнит тащит всё.
+- Спасательный крюк: срабатывает при > 6 м от плота по XZ и y < 0.6 (в воде); таймер
+  rescueDelay (1-15 с, шаг 0.3 с), возврат телепортом над плотом + ResetFallDuration().
+- Тепловизор: FindObjectsOfType<Network_Entity> раз в 1 с, фильтр имён по ключевым словам
+  (shark/bear/hyena/boar/rat/puffer/angler/butler/boss/varuna/utopia), мёртвые отсекаются
+  stat_health.IsDead(); отрисовка — DrawThermalOverlay вызывается из DrawWorldOverlays
+  (Esp.cs) через Camera.main.WorldToScreenPoint, полупрозрачные квадраты ВИДНЫ СКВОЗЬ СТЕНЫ
+  (screen-space, без окклюзии).
+- Крысолов: Network_Host.DamageEntity(entity, transform, 999999f, pos, Vector3.up,
+  EntityType.Enemy, null) — тот же вызов, что в KillAllEnemies; HashSet по GetInstanceID
+  защищает от повторного «убийства» трупа; счётчик statRats.
+- Питомцы: приватное AI_NetworkBehaviour_Domestic._hungerTimer = 0 через FieldInfo-кэш
+  (fHungerTimer, static readonly), шаг 2 с.
+- Копир этажа: CopyFloor сохраняет для каждого выделенного блока raft.InverseTransformPoint
+  + Block.buildableItem (FloorBlockCopy); PasteFloor: TransformPoint -> BlockCreator.SnapBuildPosition
+  -> InverseTransformPoint, local.y принудительно = srcY + floorPasteOffset, дедуп-ключ
+  x:y:z (в половинках BlockCreator.BlockSize), вставка BlockCreator.CreateBlockCheat(item,
+  local, Vector3.zero, DPS.Default, 0). Пустой предмет -> ItemManager.GetItemByName("Foundation").
+- Таблица игроков: FindObjectsOfType<Network_Player> раз в 2 с (свой игрок исключается),
+  имя из playerNameTextMesh.text, дистанция и координаты в HUD (правый верх, y=192).
+- Статусы тиммейтов (hudTeammateStatus): расширяют таблицу игроков — локация по высоте/дистанции
+  (y<0.25 «в воде», <14 м от плота «на плоту», <150 м от Landmark «на острове», иначе «в море»),
+  бой = акула из cachedSharksInfo ближе 16 м, смерть по player.Stats.stat_health.IsDead();
+  полоски HP/Еда/Вода из Stat.NormalValue (Stat_Consumable.normalConsumable для еды/воды),
+  «—» = значение не синхронизировалось на наш клиент. Статы удалённых игроков считаются
+  локальными на их клиентах — синхронизация НЕ гарантирована (проверить в ко-оп).
+- Сумка друга (UpdateBagViewer, таб ИГРОК после снимка инвентаря): перебор игроков ◀/▶,
+  чтение Inventory.allSlots удалённого игрока (DisplayName x Amount) + предмет в руке через
+  GetSelectedHotbarSlot; троттлинг 0.5 с; ванильно сумки закрыты,
+  если данных нет — выводится пояснение. Состояние вьювера приватное, в профили не пишется.
+- Счётчик добычи: TrackResources раз в 2 с считает дельты по слотам инвентаря
+  (UniqueName -> DisplayName), результат в resourceGains (топ-12 в табе ЛОГ); предметы,
+  исчезнувшие из инвентаря, просто сбрасываются (расход не считается как «-»).
+- Метки фич v14 добавлены в featureLabels (V12.cs); из HUD активных читов скрыты
+  worldMapOn/hudPlayersTable/smartReminders. Строки plantKeywords/baitKeyword в профилях
+  НЕ сериализуются (как lootBlacklist) — задаются вручную после загрузки профиля.
+- НЕ проверено в игре: авто-посадка (маппинг seed->Plant prefab по UniqueIndex), рыбалка 2.0
+  (связка EquipBait + PullItemsFromSea), крысолов (могут быть повторные трупы в списке),
+  тепловизор (без окклюзии — намеренно сквозь стены), блипы карты зависят от включенного
+  ESP (кэши cachedLandmarks/cachedTreasures/cachedSharksInfo наполняются только при espMaster).
+================================================================================
