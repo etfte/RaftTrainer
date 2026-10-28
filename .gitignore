@@ -6,3 +6,5 @@ obj/
 *.dll
 *.md
 *.MD
+!README.md
+!README.MD
