@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -6,7 +6,7 @@ using UnityEngine;
 namespace RaftTrainer
 {
     // ==========================================
-    // V12 МЕНЮ: ТАБЫ, СТИЛИ, HUD-ОВЕРЛЕИ
+    // V14 МЕНЮ: ТАБЫ, СТИЛИ, HUD-ОВЕРЛЕИ
     // ==========================================
     public partial class TrainerGUI : MonoBehaviour
     {
@@ -487,7 +487,7 @@ namespace RaftTrainer
             GUI.DrawTexture(new Rect(sx + 10f, sy + topBarHeight - 3f, menuW - 20f, 2f), texAccentLine);
 
             GUI.Label(new Rect(sx + 12, sy + 9, 240, 26),
-                "<color=#00E5FF>⚓</color> <b><color=#00E5FF>RAFT</color> <color=#00FFA3>TITAN</color></b> <color=#8FA3BF>v12</color>",
+                "<color=#00E5FF>⚓</color> <b><color=#00E5FF>RAFT</color> <color=#00FFA3>TITAN</color></b> <color=#8FA3BF>v14</color>",
                 titleBadgeStyle);
 
             // Масштаб UI
@@ -1325,7 +1325,7 @@ namespace RaftTrainer
         }
 
         // ==========================================
-        // ТАБ: СИСТЕМА V12
+        // ТАБ: СИСТЕМА V14
         // ==========================================
         private void DrawSystemTab()
         {

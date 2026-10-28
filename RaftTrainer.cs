@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -81,7 +81,7 @@ namespace RaftTrainer
         private float lastScreenHeight = 0f;
 
         private string globalSearch = "";
-        private string statusMessage = "Raft Trainer v12.0 готов. Открыть/закрыть меню: F4 или Insert.";
+        private string statusMessage = "Raft Trainer v14.0 готов. Открыть/закрыть меню: F4 или Insert.";
 
         private Vector2 spawnerListScroll = Vector2.zero;
 
@@ -633,8 +633,6 @@ namespace RaftTrainer
                 UpdateEspCache(player);
             }
 
-            UpdateV12Features(player);
-            UpdateV13Features(player);
             UpdateV14Features(player);
             UpdateV11Features(player);
 
