@@ -789,19 +789,25 @@ namespace RaftTrainer
         }
 
         // ---------- АВТО-ЗАРЯД БАТАРЕЕК ----------
+        private static readonly object[] rechargeArgs = new object[1];
         private void ApplyAutoBattery()
         {
             try
             {
-                var chargers = UnityEngine.Object.FindObjectsOfType<BatteryCharger>();
+                if (cachedChargers == null || Time.time > nextChargersScanTime)
+                {
+                    nextChargersScanTime = Time.time + 3.0f;
+                    cachedChargers = UnityEngine.Object.FindObjectsOfType<BatteryCharger>();
+                }
+                var chargers = cachedChargers != null ? cachedChargers : new BatteryCharger[0];
                 for (int i = 0; i < chargers.Length; i++)
                 {
                     BatteryCharger c = chargers[i];
                     if (c == null) continue;
                     if (mRechargeBattery != null)
                     {
-                        if (c.batteryL != null) mRechargeBattery.Invoke(c, new object[] { c.batteryL });
-                        if (c.batteryR != null) mRechargeBattery.Invoke(c, new object[] { c.batteryR });
+                        if (c.batteryL != null) { rechargeArgs[0] = c.batteryL; mRechargeBattery.Invoke(c, rechargeArgs); }
+                        if (c.batteryR != null) { rechargeArgs[0] = c.batteryR; mRechargeBattery.Invoke(c, rechargeArgs); }
                     }
                     if (c.fuelTank != null && fFuelCount != null && fMaxFuel != null)
                     {
@@ -1883,7 +1889,12 @@ namespace RaftTrainer
 
             try
             {
-                var fuels = UnityEngine.Object.FindObjectsOfType<Fuel>();
+                if (cachedFuels == null || Time.time > nextFuelsScanTime)
+                {
+                    nextFuelsScanTime = Time.time + 3.0f;
+                    cachedFuels = UnityEngine.Object.FindObjectsOfType<Fuel>();
+                }
+                var fuels = cachedFuels != null ? cachedFuels : new Fuel[0];
                 for (int i = 0; i < fuels.Length; i++)
                 {
                     Fuel f = fuels[i];
@@ -1910,7 +1921,12 @@ namespace RaftTrainer
                     }
                 }
 
-                var chargers = UnityEngine.Object.FindObjectsOfType<BatteryCharger>();
+                if (cachedChargers == null || Time.time > nextChargersScanTime)
+                {
+                    nextChargersScanTime = Time.time + 3.0f;
+                    cachedChargers = UnityEngine.Object.FindObjectsOfType<BatteryCharger>();
+                }
+                var chargers = cachedChargers != null ? cachedChargers : new BatteryCharger[0];
                 for (int i = 0; i < chargers.Length; i++)
                 {
                     BatteryCharger c = chargers[i];
@@ -3086,7 +3102,7 @@ namespace RaftTrainer
 
                 Vector3 d = player.transform.position - raft.transform.position;
                 d.y = 0f;
-                bool overboard = d.magnitude > 6f && player.transform.position.y < 0.6f;
+                bool overboard = d.sqrMagnitude > 36f && player.transform.position.y < 0.6f;
 
                 if (overboard)
                 {
@@ -3183,6 +3199,8 @@ namespace RaftTrainer
 
         // ---------- КРЫСОЛОВ ----------
         private float nextRatTime = 0f;
+        private AI_NetworkBehaviour_Rat[] cachedRats = null;
+        private float nextRatsScanTime = 0f;
         private void KillRats()
         {
             if (Time.time < nextRatTime) return;
@@ -3192,7 +3210,12 @@ namespace RaftTrainer
                 var host = ComponentManager<Network_Host>.Value;
                 if (host == null) return;
 
-                var rats = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Rat>();
+                if (cachedRats == null || Time.time > nextRatsScanTime)
+                {
+                    nextRatsScanTime = Time.time + 4.0f;
+                    cachedRats = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Rat>();
+                }
+                var rats = cachedRats != null ? cachedRats : new AI_NetworkBehaviour_Rat[0];
                 int killed = 0;
                 for (int i = 0; i < rats.Length; i++)
                 {
@@ -3369,7 +3392,7 @@ namespace RaftTrainer
                     Vector3 pp = p.transform.position;
                     if (ti.Dead) ti.Status = "☠ мёртв";
                     else if (pp.y < 0.25f) ti.Status = "💧 в воде";
-                    else if (cachedRaft != null && Vector3.Distance(pp, cachedRaft.transform.position) < 14f) ti.Status = "⚓ на плоту";
+                    else if (cachedRaft != null && (pp - cachedRaft.transform.position).sqrMagnitude < 196f) ti.Status = "⚓ на плоту";
                     else
                     {
                         bool onIsland = false;
@@ -3377,7 +3400,7 @@ namespace RaftTrainer
                         {
                             Landmark lm = cachedLandmarks[k];
                             if (lm == null) continue;
-                            if (Vector3.Distance(pp, lm.transform.position) < 150f) { onIsland = true; break; }
+                            if ((pp - lm.transform.position).sqrMagnitude < 22500f) { onIsland = true; break; }
                         }
                         ti.Status = onIsland ? "🏝 на острове" : "🌊 в открытом море";
                     }
@@ -3387,7 +3410,7 @@ namespace RaftTrainer
                     {
                         SharkESPInfo info = cachedSharksInfo[k];
                         if (info == null || info.transform == null) continue;
-                        if (Vector3.Distance(pp, info.transform.position) < 16f) { ti.Fighting = true; break; }
+                        if ((pp - info.transform.position).sqrMagnitude < 256f) { ti.Fighting = true; break; }
                     }
 
                     teammates.Add(ti);

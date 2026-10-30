@@ -196,6 +196,16 @@ namespace RaftTrainer
         private static BlockCreator cachedBlockCreator = null;
         private static RaftBounds cachedRaftBounds = null;
         private static PlantManager cachedPlantManager = null;
+        private float nextStableScanTime = 0f;
+        private CookingSlot[] cachedCookingSlots = null;
+        private CookingTable[] cachedCookingTables = null;
+        private Tank[] cachedTanks = null;
+        private Battery[] cachedBatteries = null;
+        private Fuel[] cachedFuels = null;
+        private float nextFuelsScanTime = 0f;
+        private float nextMachineryScanFullTime = 0f;
+        private BatteryCharger[] cachedChargers = null;
+        private float nextChargersScanTime = 0f;
 
         // PLAYER & CRAFTING
         public bool godMode = true;
@@ -568,7 +578,7 @@ namespace RaftTrainer
                 if (Time.time > nextWeaponDmgTime)
                 {
                     nextWeaponDmgTime = Time.time + 0.35f;
-                    ApplyWeaponDamage();
+                    ApplyWeaponDamage(player);
                 }
             }
 
@@ -576,8 +586,12 @@ namespace RaftTrainer
             if ((noArrowDrop || multishotBow) && Time.time > nextArrowThrottleTime)
             {
                 nextArrowThrottleTime = Time.time + 0.12f;
-                if (noArrowDrop) ApplyNoArrowDrop();
-                if (multishotBow) ApplyMultishotBow(player);
+                var arrows = UnityEngine.Object.FindObjectsOfType<Arrow>();
+                if (arrows != null && arrows.Length > 0)
+                {
+                    if (noArrowDrop) ApplyNoArrowDrop(arrows);
+                    if (multishotBow) ApplyMultishotBow(player, arrows);
+                }
             }
 
             if (killHostilesAura && Time.time > nextHostileAuraTime)
@@ -603,7 +617,7 @@ namespace RaftTrainer
             {
                 nextToolsThrottleTime = Time.time + 0.3f;
                 if (instantHarvest || fastHook || fastChop) ApplyInstantHarvest(player);
-                if (instantFishing) ApplyInstantFishing();
+                if (instantFishing) ApplyInstantFishing(player);
                 if (instantTame) ApplyInstantTame();
                 if (instantTreasureDig) ApplyInstantShovelDig(player);
             }
@@ -1823,25 +1837,20 @@ namespace RaftTrainer
 
         private void ApplyInstantHarvest(Network_Player player)
         {
+            if (player == null) return;
             try
             {
-                var hooks = UnityEngine.Object.FindObjectsOfType<Hook>();
-                foreach (var h in hooks)
+                var h = player.GetComponentInChildren<Hook>();
+                if (h != null)
                 {
-                    if (h != null)
-                    {
-                        h.gatherTime = 0.001f;
-                        h.pullSpeed = 120f;
-                    }
+                    h.gatherTime = 0.001f;
+                    h.pullSpeed = 120f;
                 }
 
-                var channels = UnityEngine.Object.FindObjectsOfType<PickupChanneling>();
-                foreach (var c in channels)
+                var c = player.GetComponentInChildren<PickupChanneling>();
+                if (c != null)
                 {
-                    if (c != null)
-                    {
-                        c.pickupTime = 0.001f;
-                    }
+                    c.pickupTime = 0.001f;
                 }
 
                 if (player.AxeScript != null)
@@ -1852,24 +1861,45 @@ namespace RaftTrainer
             catch {}
         }
 
+        private void RefreshMachineryCache()
+        {
+            if (Time.time < nextMachineryScanFullTime) return;
+            nextMachineryScanFullTime = Time.time + 3.0f;
+            cachedCookingSlots = UnityEngine.Object.FindObjectsOfType<CookingSlot>();
+            cachedCookingTables = UnityEngine.Object.FindObjectsOfType<CookingTable>();
+            cachedTanks = UnityEngine.Object.FindObjectsOfType<Tank>();
+            cachedBatteries = UnityEngine.Object.FindObjectsOfType<Battery>();
+            cachedFuels = UnityEngine.Object.FindObjectsOfType<Fuel>();
+        }
+
         private void ApplyInstantSmeltAndCook()
         {
             try
             {
-                var slots = UnityEngine.Object.FindObjectsOfType<CookingSlot>();
-                foreach (var s in slots)
+                RefreshMachineryCache();
+                if (cachedCookingSlots != null)
                 {
-                    if (s != null && s.IsBusy) s.ForceSetTimer(9999f);
+                    for (int i = 0; i < cachedCookingSlots.Length; i++)
+                    {
+                        var s = cachedCookingSlots[i];
+                        if (s != null && s.IsBusy) s.ForceSetTimer(9999f);
+                    }
                 }
-                var tables = UnityEngine.Object.FindObjectsOfType<CookingTable>();
-                foreach (var t in tables)
+                if (cachedCookingTables != null && fCookTimer != null)
                 {
-                    if (t != null && fCookTimer != null) fCookTimer.SetValue(t, 9999f);
+                    for (int i = 0; i < cachedCookingTables.Length; i++)
+                    {
+                        var t = cachedCookingTables[i];
+                        if (t != null) fCookTimer.SetValue(t, 9999f);
+                    }
                 }
-                var tanks = UnityEngine.Object.FindObjectsOfType<Tank>();
-                foreach (var tk in tanks)
+                if (cachedTanks != null)
                 {
-                    if (tk != null) tk.SetTankAmount(tk.maxCapacity);
+                    for (int i = 0; i < cachedTanks.Length; i++)
+                    {
+                        var tk = cachedTanks[i];
+                        if (tk != null) tk.SetTankAmount(tk.maxCapacity);
+                    }
                 }
             }
             catch {}
@@ -1879,13 +1909,17 @@ namespace RaftTrainer
         {
             try
             {
-                var bats = UnityEngine.Object.FindObjectsOfType<Battery>();
-                foreach (var b in bats)
+                RefreshMachineryCache();
+                if (cachedBatteries != null)
                 {
-                    if (b != null)
+                    for (int i = 0; i < cachedBatteries.Length; i++)
                     {
-                        var inst = b.GetBatteryInstance();
-                        if (inst != null) inst.Uses = inst.BaseItemMaxUses;
+                        var b = cachedBatteries[i];
+                        if (b != null)
+                        {
+                            var inst = b.GetBatteryInstance();
+                            if (inst != null) inst.Uses = inst.BaseItemMaxUses;
+                        }
                     }
                 }
             }
@@ -1896,30 +1930,41 @@ namespace RaftTrainer
         {
             try
             {
-                var fuels = UnityEngine.Object.FindObjectsOfType<Fuel>();
-                foreach (var f in fuels)
+                RefreshMachineryCache();
+                if (cachedFuels != null && fFuelCount != null && fMaxFuel != null)
                 {
-                    if (f != null && fFuelCount != null && fMaxFuel != null)
+                    for (int i = 0; i < cachedFuels.Length; i++)
                     {
-                        int max = (int)fMaxFuel.GetValue(f);
-                        fFuelCount.SetValue(f, max);
+                        var f = cachedFuels[i];
+                        if (f != null)
+                        {
+                            int max = (int)fMaxFuel.GetValue(f);
+                            fFuelCount.SetValue(f, max);
+                        }
                     }
                 }
             }
             catch {}
         }
 
-        private void ApplyInstantFishing()
+        private void ApplyInstantFishing(Network_Player player)
         {
+            if (player == null || fFishOnHook == null) return;
             try
             {
-                var bobbers = UnityEngine.Object.FindObjectsOfType<Bobber>();
-                foreach (var b in bobbers)
+                var rod = player.GetComponentInChildren<FishingRod>();
+                if (rod == null) return;
+                var b = rod.GetComponentInChildren<Bobber>();
+                if (b != null)
                 {
-                    if (b != null && fFishOnHook != null)
-                    {
-                        fFishOnHook.SetValue(b, true);
-                    }
+                    fFishOnHook.SetValue(b, true);
+                    return;
+                }
+                var bobbers = UnityEngine.Object.FindObjectsOfType<Bobber>();
+                for (int i = 0; i < bobbers.Length; i++)
+                {
+                    var bob = bobbers[i];
+                    if (bob != null) fFishOnHook.SetValue(bob, true);
                 }
             }
             catch {}
@@ -1994,20 +2039,22 @@ namespace RaftTrainer
             catch {}
         }
 
-        private void ApplyNoArrowDrop()
+        private void ApplyNoArrowDrop(Arrow[] arrows)
         {
             try
             {
-                var arrows = UnityEngine.Object.FindObjectsOfType<Arrow>();
-                for (int i = 0; i < arrows.Length; i++)
+                if (arrows != null)
                 {
-                    var a = arrows[i];
-                    if (a == null || a.IsExpended) continue;
-                    var rb = a.GetComponent<Rigidbody>();
-                    if (rb != null && rb.useGravity)
+                    for (int i = 0; i < arrows.Length; i++)
                     {
-                        rb.useGravity = false;
-                        rb.velocity = rb.velocity.normalized * 65f;
+                        var a = arrows[i];
+                        if (a == null || a.IsExpended) continue;
+                        var rb = a.GetComponent<Rigidbody>();
+                        if (rb != null && rb.useGravity)
+                        {
+                            rb.useGravity = false;
+                            rb.velocity = rb.velocity.normalized * 65f;
+                        }
                     }
                 }
 
@@ -2576,24 +2623,17 @@ namespace RaftTrainer
             catch {}
         }
 
-        private void ApplyWeaponDamage()
+        private void ApplyWeaponDamage(Network_Player player)
         {
+            if (player == null) return;
             try
             {
                 float targetDmg = oneHitKill ? 999999f : (20f * weaponDamageMultiplier);
-                var melee = UnityEngine.Object.FindObjectsOfType<MeleeWeapon>();
-                foreach (var m in melee)
+                var m = player.GetComponentInChildren<MeleeWeapon>();
+                if (m != null)
                 {
-                    if (m != null)
-                    {
-                        if (fMeleeDamage != null) fMeleeDamage.SetValue(m, (int)targetDmg);
-                        if (fMeleeInv != null) fMeleeInv.SetValue(m, oneHitKill || weaponDamageMultiplier > 2f);
-                    }
-                }
-                var arrows = UnityEngine.Object.FindObjectsOfType<Arrow>();
-                foreach (var a in arrows)
-                {
-                    if (a != null && fArrowDamage != null) fArrowDamage.SetValue(a, targetDmg);
+                    if (fMeleeDamage != null) fMeleeDamage.SetValue(m, (int)targetDmg);
+                    if (fMeleeInv != null) fMeleeInv.SetValue(m, oneHitKill || weaponDamageMultiplier > 2f);
                 }
             }
             catch {}
@@ -2606,17 +2646,22 @@ namespace RaftTrainer
             {
                 if (player.BlockCreator != null)
                 {
-                    player.BlockCreator.buildDelay = 0f;
-                    BlockCreator.MaxHeight = 9999f;
+                    if (player.BlockCreator.buildDelay > 0f) player.BlockCreator.buildDelay = 0f;
+                    if (BlockCreator.MaxHeight < 9000f) BlockCreator.MaxHeight = 9999f;
                 }
 
-                var stables = UnityEngine.Object.FindObjectsOfType<StableComponent>();
-                foreach (var sc in stables)
+                if (Time.time > nextStableScanTime)
                 {
-                    if (sc != null)
+                    nextStableScanTime = Time.time + 3.0f;
+                    var stables = UnityEngine.Object.FindObjectsOfType<StableComponent>();
+                    for (int i = 0; i < stables.Length; i++)
                     {
-                        sc.requiredHitCount = 0;
-                        sc.requireAll = false;
+                        var sc = stables[i];
+                        if (sc != null)
+                        {
+                            sc.requiredHitCount = 0;
+                            sc.requireAll = false;
+                        }
                     }
                 }
             }
@@ -2628,7 +2673,12 @@ namespace RaftTrainer
             if (player == null) return;
             try
             {
-                var chests = UnityEngine.Object.FindObjectsOfType<Storage_Small>();
+                var chests = (cachedChests != null && cachedChests.Length > 0) ? cachedChests : UnityEngine.Object.FindObjectsOfType<Storage_Small>();
+                if (chests == null || chests.Length == 0)
+                {
+                    statusMessage = "Сундуки на плоту не найдены!";
+                    return;
+                }
                 Storage_Small nearest = null;
                 float minSqr = float.MaxValue;
                 Vector3 playerPos = player.transform.position;
@@ -2752,8 +2802,9 @@ namespace RaftTrainer
             Vector3 camFwd = player.CameraTransform.forward;
             Vector3 aimTargetPos = Vector3.zero;
             bool targetFound = false;
-            float closestAngle = aimbotFOV;
             float maxRangeSqr = aimbotRange * aimbotRange;
+            float minCos = Mathf.Cos(aimbotFOV * Mathf.Deg2Rad);
+            float bestCos = minCos;
 
             // 1. Animals / Shark Aimbot
             if (aimbotAnimals)
@@ -2765,12 +2816,14 @@ namespace RaftTrainer
                     if (s == null || s.transform == null) continue;
                     Vector3 target = s.transform.position + Vector3.up * 0.4f;
                     Vector3 dir = target - camPos;
-                    if (dir.sqrMagnitude > maxRangeSqr) continue;
-                    if (Vector3.Dot(camFwd, dir) <= 0f) continue;
-                    float angle = Vector3.Angle(camFwd, dir);
-                    if (angle < closestAngle)
+                    float dSqr = dir.sqrMagnitude;
+                    if (dSqr > maxRangeSqr) continue;
+                    float dot = Vector3.Dot(camFwd, dir);
+                    if (dot <= 0f) continue;
+                    float cosVal = dot / Mathf.Sqrt(dSqr);
+                    if (cosVal > bestCos)
                     {
-                        closestAngle = angle;
+                        bestCos = cosVal;
                         aimTargetPos = target;
                         targetFound = true;
                     }
@@ -2786,16 +2839,18 @@ namespace RaftTrainer
 
                         Vector3 entPos = ent.transform.position + Vector3.up * 0.6f;
                         Vector3 dir = entPos - camPos;
-                        if (dir.sqrMagnitude > maxRangeSqr) continue;
-                        if (Vector3.Dot(camFwd, dir) <= 0f) continue;
+                        float dSqr = dir.sqrMagnitude;
+                        if (dSqr > maxRangeSqr) continue;
+                        float dot = Vector3.Dot(camFwd, dir);
+                        if (dot <= 0f) continue;
 
                         if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
                         if (ent.GetComponent<Network_Player>() != null) continue;
 
-                        float angle = Vector3.Angle(camFwd, dir);
-                        if (angle < closestAngle)
+                        float cosVal = dot / Mathf.Sqrt(dSqr);
+                        if (cosVal > bestCos)
                         {
-                            closestAngle = angle;
+                            bestCos = cosVal;
                             aimTargetPos = entPos;
                             targetFound = true;
                         }
@@ -2814,13 +2869,15 @@ namespace RaftTrainer
 
                     Vector3 itemPos = item.transform.position + Vector3.up * 0.2f;
                     Vector3 dir = itemPos - camPos;
-                    if (dir.sqrMagnitude > maxRangeSqr) continue;
-                    if (Vector3.Dot(camFwd, dir) <= 0f) continue;
+                    float dSqr = dir.sqrMagnitude;
+                    if (dSqr > maxRangeSqr) continue;
+                    float dot = Vector3.Dot(camFwd, dir);
+                    if (dot <= 0f) continue;
 
-                    float angle = Vector3.Angle(camFwd, dir);
-                    if (angle < closestAngle)
+                    float cosVal = dot / Mathf.Sqrt(dSqr);
+                    if (cosVal > bestCos)
                     {
-                        closestAngle = angle;
+                        bestCos = cosVal;
                         aimTargetPos = itemPos;
                         targetFound = true;
                     }
@@ -3305,12 +3362,12 @@ namespace RaftTrainer
             catch {}
         }
 
-        private void ApplyMultishotBow(Network_Player player)
+        private void ApplyMultishotBow(Network_Player player, Arrow[] arrows)
         {
+            if (player == null || arrows == null) return;
             try
             {
-                if (player == null) return;
-                var arrows = UnityEngine.Object.FindObjectsOfType<Arrow>();
+                Vector3 pPos = player.transform.position;
                 for (int i = 0; i < arrows.Length; i++)
                 {
                     var arr = arrows[i];
@@ -3319,7 +3376,7 @@ namespace RaftTrainer
                     if (processedArrows.Contains(id)) continue;
                     processedArrows.Add(id);
 
-                    if (Vector3.Distance(arr.transform.position, player.transform.position) < 3.5f)
+                    if ((arr.transform.position - pPos).sqrMagnitude < 12.25f)
                     {
                         var rb = arr.GetComponent<Rigidbody>();
                         if (rb != null && rb.velocity.sqrMagnitude > 25f)

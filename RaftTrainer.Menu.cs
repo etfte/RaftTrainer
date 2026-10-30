@@ -15,6 +15,13 @@ namespace RaftTrainer
         private static readonly Color FpsHighColor = new Color(0.3f, 1f, 0.55f);
         private static readonly Color FpsMidColor = new Color(1f, 0.75f, 0.2f);
         private static readonly Color FpsLowColor = new Color(1f, 0.3f, 0.35f);
+        private static readonly Color FpsGraphHighColor = new Color(0.3f, 1f, 0.55f, 0.9f);
+        private static readonly Color FpsGraphMidColor = new Color(1f, 0.75f, 0.2f, 0.9f);
+        private static readonly Color FpsGraphLowColor = new Color(1f, 0.3f, 0.35f, 0.9f);
+        private static readonly Color FpsGraphBgColor = new Color(0f, 0f, 0f, 0.45f);
+        private static readonly Color AlarmBaseColor = new Color(1f, 0.25f, 0.3f, 1f);
+        private static readonly Color MinimapNorthColor = new Color(1f, 0.9f, 0.4f);
+        private static readonly GUILayoutOption[] OptToggleRow = new GUILayoutOption[] { GUILayout.ExpandWidth(true) };
         private string cachedWeatherTxt = "";
         private float nextWeatherTxtTime = 0f;
         // ТАБЫ
@@ -605,7 +612,7 @@ namespace RaftTrainer
         {
             bool val = (bool)field.GetValue(this);
             GUILayout.Space(2f);
-            Rect row = GUILayoutUtility.GetRect(0f, 22f, GUILayout.ExpandWidth(true));
+            Rect row = GUILayoutUtility.GetRect(0f, 22f, OptToggleRow);
             bool hovered = row.Contains(Event.current.mousePosition);
             GUI.Box(row, GUIContent.none, hovered ? rowHoverStyle : rowStyle);
             if (val) GUI.DrawTexture(new Rect(row.x, row.y + 4f, 2f, row.height - 8f), texSwitchOn);
@@ -626,7 +633,7 @@ namespace RaftTrainer
             }
 
             GUILayout.Space(2f);
-            Rect row = GUILayoutUtility.GetRect(0f, 22f, GUILayout.ExpandWidth(true));
+            Rect row = GUILayoutUtility.GetRect(0f, 22f, OptToggleRow);
             bool hovered = row.Contains(Event.current.mousePosition);
             GUI.Box(row, GUIContent.none, hovered ? rowHoverStyle : rowStyle);
             if (currentVal) GUI.DrawTexture(new Rect(row.x, row.y + 4f, 2f, row.height - 8f), texSwitchOn);
@@ -1871,7 +1878,9 @@ namespace RaftTrainer
             if (!sharkAlarm || Time.time >= sharkAlarmUntil) return;
             float pulse = 0.55f + 0.45f * Mathf.Sin(Time.time * 8f);
             Color prev = GUI.color;
-            GUI.color = new Color(1f, 0.25f, 0.3f, pulse);
+            Color ac = AlarmBaseColor;
+            ac.a = pulse;
+            GUI.color = ac;
             GUI.Box(new Rect(Screen.width / 2f - 170f, 60f, 340f, 24f), "⚠ АКУЛА ПРИБЛИЖАЕТСЯ!", espBoxStyle);
             GUI.color = prev;
         }
@@ -1911,7 +1920,7 @@ namespace RaftTrainer
                 GUI.color = Color.white;
                 GUI.DrawTexture(new Rect(center.x - 3f, center.y - 3f, 6f, 6f), texKnob);
                 GUI.DrawTexture(new Rect(center.x - 1f, center.y - 12f, 2f, 10f), texWhiteDot);
-                GUI.color = new Color(1f, 0.9f, 0.4f);
+                GUI.color = MinimapNorthColor;
                 GUI.Label(new Rect(center.x - 6f, panel.y + 2f, 20f, 14f), "С", hudTextStyle);
                 GUI.color = prev;
             }
@@ -1954,7 +1963,7 @@ namespace RaftTrainer
             float gy = panel.y + 54f;
             float gw = w - 16f;
             float gh = 30f;
-            GUI.color = new Color(0f, 0f, 0f, 0.45f);
+            GUI.color = FpsGraphBgColor;
             GUI.DrawTexture(new Rect(gx, gy, gw, gh), texWhiteDot);
             float bw = gw / 60f;
             for (int i = 0; i < fpsSampleCount; i++)
@@ -1963,8 +1972,7 @@ namespace RaftTrainer
                 float v = Mathf.Clamp01(fpsSamples[idx] / 70f);
                 float bh = v * gh;
                 if (bh < 1f) bh = 1f;
-                GUI.color = v > 0.75f ? new Color(0.3f, 1f, 0.55f, 0.9f)
-                    : (v > 0.45f ? new Color(1f, 0.75f, 0.2f, 0.9f) : new Color(1f, 0.3f, 0.35f, 0.9f));
+                GUI.color = v > 0.75f ? FpsGraphHighColor : (v > 0.45f ? FpsGraphMidColor : FpsGraphLowColor);
                 GUI.DrawTexture(new Rect(gx + i * bw, gy + gh - bh, bw - 1f, bh), texWhiteDot);
             }
             GUI.color = prev;

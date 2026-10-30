@@ -20,7 +20,6 @@ namespace RaftTrainer
         private readonly List<EspTag> espTags = new List<EspTag>();
         private readonly List<EspTag> espTagPool = new List<EspTag>();
         private int espTagsCount = 0;
-        private readonly List<PickupItem> espPickupScratch = new List<PickupItem>();
         private readonly List<SharkESPInfo> espNameSharks = new List<SharkESPInfo>();
         private readonly Dictionary<int, string> espNameCache = new Dictionary<int, string>();
         private readonly HashSet<Transform> sharkSeenTransforms = new HashSet<Transform>();
@@ -36,8 +35,15 @@ namespace RaftTrainer
 
         private static readonly string[] DistStrings = new string[3001];
         private static readonly GUIContent sharedContent = new GUIContent();
+        private struct PickupDistEntry
+        {
+            public PickupItem item;
+            public float sqrDist;
+        }
+
+        private static readonly List<PickupDistEntry> espPickupScratch = new List<PickupDistEntry>();
+        private static readonly Comparison<PickupDistEntry> ItemDistComparison = (a, b) => a.sqrDist.CompareTo(b.sqrDist);
         private static readonly Comparison<EspTag> TagDistComparison = CompareTagsByDistance;
-        private static readonly Comparison<PickupItem> ItemDistComparison = CompareItemsByDistance;
         private static readonly Color BlockDamagedColor = new Color(1f, 0.25f, 0.30f);
         private static readonly Color BlockHealthyColor = new Color(0.20f, 1f, 0.60f);
         private static readonly Color BlockSelectedColor = new Color(1f, 0.85f, 0.20f);
@@ -72,15 +78,6 @@ namespace RaftTrainer
                 DistStrings[i] = "  " + i + "м";
             }
             InitMapGeometry();
-        }
-
-        private static int CompareItemsByDistance(PickupItem a, PickupItem b)
-        {
-            if (a == null) return b == null ? 0 : 1;
-            if (b == null) return -1;
-            float da = (a.transform.position - espSortOrigin).sqrMagnitude;
-            float db = (b.transform.position - espSortOrigin).sqrMagnitude;
-            return da.CompareTo(db);
         }
 
         private static int CompareTagsByDistance(EspTag a, EspTag b)
@@ -292,16 +289,21 @@ namespace RaftTrainer
             for (int i = 0; i < all.Length; i++)
             {
                 var it = all[i];
-                if (it != null && (it.transform.position - pp).sqrMagnitude <= radiusSqr) espPickupScratch.Add(it);
+                if (it == null) continue;
+                float dSqr = (it.transform.position - pp).sqrMagnitude;
+                if (dSqr <= radiusSqr)
+                {
+                    espPickupScratch.Add(new PickupDistEntry { item = it, sqrDist = dSqr });
+                }
             }
 
-            espSortOrigin = pp;
             espPickupScratch.Sort(ItemDistComparison);
 
             for (int i = 0; i < espPickupScratch.Count; i++)
             {
-                var it = espPickupScratch[i];
-                float dSqr = (it.transform.position - pp).sqrMagnitude;
+                var entry = espPickupScratch[i];
+                var it = entry.item;
+                float dSqr = entry.sqrDist;
                 if (dSqr <= itemMaxSqr && cachedPickups.Count < 50 && IsPickupAllowed(it)) cachedPickups.Add(it);
                 if (espUnderwaterOres && dSqr <= oreMaxSqr && IsOreObject(it)) cachedOres.Add(it);
             }
