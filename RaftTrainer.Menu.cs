@@ -10,6 +10,8 @@ namespace RaftTrainer
     // ==========================================
     public partial class TrainerGUI : MonoBehaviour
     {
+        private string cachedWeatherTxt = "";
+        private float nextWeatherTxtTime = 0f;
         // ТАБЫ
         private static readonly string[] tabNames = new string[]
         {
@@ -1773,11 +1775,11 @@ namespace RaftTrainer
             float h = shown * 15f + 26f + (count > shown ? 12f : 0f);
             Rect panel = new Rect(10f, 10f, 210f, h);
             GUI.Box(panel, GUIContent.none, hudPanelStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 4f, panel.width - 16f, 16f), "<b>АКТИВНО: " + count + "</b>", hudTitleStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 4f, panel.width - 16f, 16f), activeCheatsHeaderStr, hudTitleStyle);
             for (int i = 0; i < shown; i++)
                 GUI.Label(new Rect(panel.x + 8f, panel.y + 20f + i * 15f, panel.width - 16f, 14f), activeCheatNames[i], hudTextStyle);
             if (count > shown)
-                GUI.Label(new Rect(panel.x + 8f, panel.y + 20f + shown * 15f, panel.width - 16f, 14f), "…и ещё " + (count - shown), hudTextStyle);
+                GUI.Label(new Rect(panel.x + 8f, panel.y + 20f + shown * 15f, panel.width - 16f, 14f), activeCheatsMoreStr, hudTextStyle);
         }
 
         private void DrawSessionStatsHud()
@@ -1786,9 +1788,9 @@ namespace RaftTrainer
             Rect panel = new Rect(Screen.width - 224f, 10f, 214f, 64f);
             GUI.Box(panel, GUIContent.none, hudPanelStyle);
             GUI.Label(new Rect(panel.x + 8f, panel.y + 4f, panel.width - 16f, 16f), "<b>📊 СЕССИЯ</b>", hudTitleStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 22f, panel.width - 16f, 14f), "Время: " + FormatSessionTime(), hudTextStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 36f, panel.width - 16f, 14f), "Лут: " + sessionItems + " шт", hudTextStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 50f, panel.width - 16f, 14f), "Путь: " + FormatDistance(sessionDistance), hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 22f, panel.width - 16f, 14f), cachedSessionTimeStr, hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 36f, panel.width - 16f, 14f), cachedSessionItemsStr, hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 50f, panel.width - 16f, 14f), cachedSessionDistStr, hudTextStyle);
         }
 
         private void DrawCompassHud(Camera cam)
@@ -1840,14 +1842,17 @@ namespace RaftTrainer
             if (!hudWeatherTimer || cachedWeather == null) return;
             try
             {
-                string wname;
-                try { wname = cachedWeather.GetCurrentWeatherType().ToString(); }
-                catch { return; }
-                float timer = -1f;
-                try { timer = cachedWeather.WeatherTimer; } catch {}
-                string txt = "☁ " + TranslateWeather(wname);
-                if (timer >= 0f) txt += " • смена: " + FormatTimeSpan(timer);
-                GUI.Box(new Rect(Screen.width / 2f - 110f, 34f, 220f, 20f), txt, espBoxStyle);
+                if (Time.time > nextWeatherTxtTime || string.IsNullOrEmpty(cachedWeatherTxt))
+                {
+                    nextWeatherTxtTime = Time.time + 1f;
+                    string wname = cachedWeather.GetCurrentWeatherType().ToString();
+                    float timer = -1f;
+                    try { timer = cachedWeather.WeatherTimer; } catch {}
+                    string txt = "☁ " + TranslateWeather(wname);
+                    if (timer >= 0f) txt += " • смена: " + FormatTimeSpan(timer);
+                    cachedWeatherTxt = txt;
+                }
+                GUI.Box(new Rect(Screen.width / 2f - 110f, 34f, 220f, 20f), cachedWeatherTxt, espBoxStyle);
             }
             catch {}
         }
@@ -1931,11 +1936,10 @@ namespace RaftTrainer
             else if (fpsCurrent > 30f) c = new Color(1f, 0.75f, 0.2f);
             else c = new Color(1f, 0.3f, 0.35f);
             GUI.color = c;
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 20f, 90f, 16f), "<b>" + Mathf.RoundToInt(fpsCurrent) + " FPS</b>", hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 20f, 90f, 16f), perfFpsStr, hudTextStyle);
             GUI.color = prev;
-            GUI.Label(new Rect(panel.x + 78f, panel.y + 20f, 170f, 16f),
-                Mathf.Round(1000f / Mathf.Max(1f, fpsCurrent)) + " мс • " + entityCount + " сущ.", hudTextStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 34f, 230f, 16f), "Блоков плота: " + blockCount, hudTextStyle);
+            GUI.Label(new Rect(panel.x + 78f, panel.y + 20f, 170f, 16f), perfMsEntityStr, hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 34f, 230f, 16f), perfBlockCountStr, hudTextStyle);
 
             float gx = panel.x + 8f;
             float gy = panel.y + 54f;
@@ -1967,14 +1971,10 @@ namespace RaftTrainer
             Rect panel = new Rect(Screen.width - w - 10f, 84f, w, h);
             GUI.Box(panel, GUIContent.none, hudPanelStyle);
             GUI.Label(new Rect(panel.x + 8f, panel.y + 4f, panel.width - 16f, 16f), "<b>⚙ МАШИНЫ ПЛОТА</b>", hudTitleStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 22f, panel.width - 16f, 14f),
-                "⚓ Двигатели: " + enginesCount + " • топл. " + enginesFuel + "/" + enginesFuelMax + (enginesBurning > 0 ? " 🔥" : ""), hudTextStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 36f, panel.width - 16f, 14f),
-                "🏭 Плавильни: " + smeltersCount + " • топл. " + smeltersFuel + "/" + smeltersFuelMax, hudTextStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 50f, panel.width - 16f, 14f),
-                "🍳 Грили/печи: " + cookersCount + " • топл. " + cookersFuel + "/" + cookersFuelMax, hudTextStyle);
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 64f, panel.width - 16f, 14f),
-                "🔋 Зарядки: " + chargersTotal + " • батареек " + chargersWithBattery, hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 22f, panel.width - 16f, 14f), machinesEnginesStr, hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 36f, panel.width - 16f, 14f), machinesSmeltersStr, hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 50f, panel.width - 16f, 14f), machinesCookersStr, hudTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 64f, panel.width - 16f, 14f), machinesChargersStr, hudTextStyle);
             GUI.Label(new Rect(panel.x + 8f, panel.y + 80f, panel.width - 16f, 14f),
                 "<i>обновление каждые 2 сек</i>", subLabelStyle);
         }

@@ -276,7 +276,7 @@ namespace RaftTrainer
             if (espRaft && cachedRaft != null)
             {
                 Vector3 rPos = cachedRaft.transform.position + Vector3.up * 2f;
-                AddEspTag(rPos, "ПЛОТ", new Color(0.25f, 0.85f, 1f), 2000f, Vector3.Distance(rPos, pp));
+                AddEspTag(rPos, "ПЛОТ", new Color(0.25f, 0.85f, 1f), 2000f, (rPos - pp).sqrMagnitude);
             }
 
             if (espPlayers)
@@ -288,7 +288,7 @@ namespace RaftTrainer
                     string pName = "Игрок";
                     if (p.playerNameTextMesh != null && !string.IsNullOrEmpty(p.playerNameTextMesh.text)) pName = p.playerNameTextMesh.text;
                     Vector3 pPos = p.transform.position + Vector3.up * 1.8f;
-                    AddEspTag(pPos, "ИГРОК " + pName, new Color(0.2f, 1f, 0.4f), 2000f, Vector3.Distance(pPos, pp));
+                    AddEspTag(pPos, "ИГРОК " + pName, new Color(0.2f, 1f, 0.4f), 2000f, (pPos - pp).sqrMagnitude);
                 }
             }
 
@@ -300,7 +300,7 @@ namespace RaftTrainer
                     if (info == null || info.transform == null) continue;
                     string label = info.name + " " + info.health.ToString("F0") + "/" + info.maxHealth.ToString("F0") + " HP";
                     Vector3 sPos = info.transform.position + Vector3.up * 0.8f;
-                    AddEspTag(sPos, label, new Color(1f, 0.25f, 0.35f), 2000f, Vector3.Distance(sPos, pp));
+                    AddEspTag(sPos, label, new Color(1f, 0.25f, 0.35f), 2000f, (sPos - pp).sqrMagnitude);
                 }
             }
 
@@ -313,15 +313,15 @@ namespace RaftTrainer
                     string n = p.name.ToLower();
                     bool box = n.Contains("barrel") || n.Contains("crate") || n.Contains("box");
                     Vector3 iPos = p.transform.position + Vector3.up * 0.3f;
-                    float d = Vector3.Distance(iPos, pp);
+                    float dSqr = (iPos - pp).sqrMagnitude;
                     if (box)
                     {
-                        if (espBarrels) AddEspTag(iPos, n.Contains("barrel") ? "БОЧКА" : "ЯЩИК", new Color(1f, 0.85f, 0.2f), espItemMaxDist, d);
+                        if (espBarrels) AddEspTag(iPos, n.Contains("barrel") ? "БОЧКА" : "ЯЩИК", new Color(1f, 0.85f, 0.2f), espItemMaxDist, dSqr);
                     }
                     else if (espAllItems)
                     {
                         string rus = GetRussianItemName(p);
-                        AddEspTag(iPos, rus, GetItemTagColor(rus), espItemMaxDist, d);
+                        AddEspTag(iPos, rus, GetItemTagColor(rus), espItemMaxDist, dSqr);
                     }
                 }
             }
@@ -334,7 +334,7 @@ namespace RaftTrainer
                     if (p == null) continue;
                     string rus = GetRussianItemName(p);
                     Vector3 oPos = p.transform.position;
-                    AddEspTag(oPos, "РУДА " + rus, GetOreTagColor(rus), espOreMaxDist, Vector3.Distance(oPos, pp));
+                    AddEspTag(oPos, "РУДА " + rus, GetOreTagColor(rus), espOreMaxDist, (oPos - pp).sqrMagnitude);
                 }
             }
 
@@ -345,7 +345,7 @@ namespace RaftTrainer
                     var tp = cachedTreasures[i];
                     if (tp == null) continue;
                     Vector3 tPos = tp.transform.position;
-                    AddEspTag(tPos, "КЛАД", new Color(1f, 0.85f, 0.1f), 120f, Vector3.Distance(tPos, pp));
+                    AddEspTag(tPos, "КЛАД", new Color(1f, 0.85f, 0.1f), 120f, (tPos - pp).sqrMagnitude);
                 }
             }
 
@@ -354,7 +354,7 @@ namespace RaftTrainer
                 for (int i = 0; i < waypoints.Count; i++)
                 {
                     Vector3 wPos = waypoints[i].position + Vector3.up * 2f;
-                    AddEspTag(wPos, "ТОЧКА " + waypoints[i].name, new Color(0.2f, 0.9f, 1f), 3000f, Vector3.Distance(wPos, pp));
+                    AddEspTag(wPos, "ТОЧКА " + waypoints[i].name, new Color(0.2f, 0.9f, 1f), 3000f, (wPos - pp).sqrMagnitude);
                 }
             }
 

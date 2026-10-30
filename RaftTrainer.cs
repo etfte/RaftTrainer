@@ -69,6 +69,8 @@ namespace RaftTrainer
         private static readonly FieldInfo fWaterMaxRoughness = typeof(WaterRoughnessManager).GetField("maxRoughness", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         private static readonly MethodInfo mNetGunReload = typeof(ThrowableComponent_NetGun).GetMethod("SetIsReloaded", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
         private static readonly MethodInfo mNetGunCooldown = typeof(ThrowableComponent_NetGun).GetMethod("ResetShotCooldown", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        private static readonly MethodInfo mWeighAnchor = typeof(Anchor_Stationary).GetMethod("WeighAnchor", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        private static readonly MethodInfo mDropAnchor = typeof(Anchor_Stationary).GetMethod("DropAnchor", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
 
         // Menu State & Scaling (CLOSED by default on launch!)
         public bool showMenu = false;
@@ -165,6 +167,7 @@ namespace RaftTrainer
         private Block_CookingStand[] cachedCookingStands = null;
         private Storage_Small[] cachedChests = null;
         private float nextMachineryScanTime = 0f;
+        private float nextAutoCropHarvestTime = 0f;
 
         // PLAYER & CRAFTING
         public bool godMode = true;
@@ -642,7 +645,11 @@ namespace RaftTrainer
                 if (infinitePipeWater) ApplyInfinitePipePressure();
                 if (indestructibleRaft) ApplyIndestructibleRaft();
                 if (alwaysActiveDetector) ApplyAlwaysActiveMetalDetector();
-                if (autoCropHarvest) ApplyAutoCropHarvest(player);
+                if (autoCropHarvest && Time.time > nextAutoCropHarvestTime)
+                {
+                    nextAutoCropHarvestTime = Time.time + 2.0f;
+                    ApplyAutoCropHarvest(player);
+                }
                 if (instantBiofuel) ApplyInstantBiofuel();
                 if (hyperBeehives) ApplyHyperBeehives();
                 if (noFuelLanterns) ApplyNoFuelLanterns();
@@ -686,7 +693,7 @@ namespace RaftTrainer
 
             if (flipperGlider) ApplyFlipperGlider(player);
 
-            if (infiniteOxygen && player.Stats != null && player.Stats.stat_oxygen != null)
+            if (infiniteOxygen && player.Stats != null && player.Stats.stat_oxygen != null && player.Stats.stat_oxygen.Value < player.Stats.stat_oxygen.Max)
             {
                 player.Stats.stat_oxygen.Value = player.Stats.stat_oxygen.Max;
             }
@@ -1288,7 +1295,7 @@ namespace RaftTrainer
             for (int i = 0; i < blocks.Length && wireBlocks.Count < 300; i++)
             {
                 var b = blocks[i];
-                if (b != null && Vector3.Distance(b.transform.position, cp) <= 55f) wireBlocks.Add(b);
+                if (b != null && (b.transform.position - cp).sqrMagnitude <= 3025f) wireBlocks.Add(b);
             }
         }
 
@@ -1303,7 +1310,7 @@ namespace RaftTrainer
                 {
                     var src = sources[i];
                     if (src == null || boostedSources.Contains(src)) continue;
-                    if (Vector3.Distance(src.transform.position, pp) > 140f) continue;
+                    if ((src.transform.position - pp).sqrMagnitude > 19600f) continue;
                     boostedSources.Add(src);
                     boostedRanges.Add(src.maxDistance);
                 }
@@ -1530,16 +1537,32 @@ namespace RaftTrainer
         private Shark FindNearestShark(Vector3 pos, float radius)
         {
             Shark best = null;
-            float bestDist = radius;
+            float bestSqr = radius * radius;
+            int cCount = cachedSharks.Count;
+            if (cCount > 0)
+            {
+                for (int i = 0; i < cCount; i++)
+                {
+                    var s = cachedSharks[i];
+                    if (s == null) continue;
+                    float dSqr = (s.transform.position - pos).sqrMagnitude;
+                    if (dSqr < bestSqr)
+                    {
+                        bestSqr = dSqr;
+                        best = s;
+                    }
+                }
+                if (best != null) return best;
+            }
             var sharks = UnityEngine.Object.FindObjectsOfType<Shark>();
             for (int i = 0; i < sharks.Length; i++)
             {
                 var s = sharks[i];
                 if (s == null) continue;
-                float d = Vector3.Distance(s.transform.position, pos);
-                if (d < bestDist)
+                float dSqr = (s.transform.position - pos).sqrMagnitude;
+                if (dSqr < bestSqr)
                 {
-                    bestDist = d;
+                    bestSqr = dSqr;
                     best = s;
                 }
             }
@@ -1563,10 +1586,10 @@ namespace RaftTrainer
             statusMessage = "Точка сохранена: " + name;
         }
 
+        private static readonly string[] WaypointPresets = { "Дом", "Шахта", "Склад", "Маяк" };
         private string DefaultWaypointName(int index)
         {
-            string[] presets = { "Дом", "Шахта", "Склад", "Маяк" };
-            return index < presets.Length ? presets[index] : "Точка " + (index + 1);
+            return index < WaypointPresets.Length ? WaypointPresets[index] : "Точка " + (index + 1);
         }
 
         private void TeleportToWaypoint(int index)
@@ -2082,14 +2105,12 @@ namespace RaftTrainer
                         {
                             if (a.AtBottom)
                             {
-                                var mi = typeof(Anchor_Stationary).GetMethod("WeighAnchor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                                if (mi != null) mi.Invoke(a, null);
+                                if (mWeighAnchor != null) mWeighAnchor.Invoke(a, null);
                                 statusMessage = "Якорь поднят!";
                             }
                             else
                             {
-                                var mi = typeof(Anchor_Stationary).GetMethod("DropAnchor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                                if (mi != null) mi.Invoke(a, null);
+                                if (mDropAnchor != null) mDropAnchor.Invoke(a, null);
                                 statusMessage = "Якорь сброшен на дно!";
                             }
                         }
@@ -2275,8 +2296,10 @@ namespace RaftTrainer
 
                 if (BirdsNest.AllNests != null)
                 {
-                    foreach (var nest in BirdsNest.AllNests)
+                    int nCount = BirdsNest.AllNests.Count;
+                    for (int i = 0; i < nCount; i++)
                     {
+                        var nest = BirdsNest.AllNests[i];
                         if (nest != null)
                         {
                             if (nest.EggCount < 3) nest.LayEgg(3 - nest.EggCount);
@@ -2295,8 +2318,10 @@ namespace RaftTrainer
                 int count = 0;
                 if (BirdsNest.AllNests != null && player != null)
                 {
-                    foreach (var nest in BirdsNest.AllNests)
+                    int nCount = BirdsNest.AllNests.Count;
+                    for (int i = 0; i < nCount; i++)
                     {
+                        var nest = BirdsNest.AllNests[i];
                         if (nest != null)
                         {
                             if (nest.HasEgg) { nest.PickupEgg(player); count++; }
@@ -2519,17 +2544,18 @@ namespace RaftTrainer
             {
                 var chests = UnityEngine.Object.FindObjectsOfType<Storage_Small>();
                 Storage_Small nearest = null;
-                float minDist = float.MaxValue;
+                float minSqr = float.MaxValue;
                 Vector3 playerPos = player.transform.position;
 
-                foreach (var c in chests)
+                for (int i = 0; i < chests.Length; i++)
                 {
+                    var c = chests[i];
                     if (c != null)
                     {
-                        float d = Vector3.Distance(c.transform.position, playerPos);
-                        if (d < minDist)
+                        float dSqr = (c.transform.position - playerPos).sqrMagnitude;
+                        if (dSqr < minSqr)
                         {
-                            minDist = d;
+                            minSqr = dSqr;
                             nearest = c;
                         }
                     }
@@ -2538,7 +2564,7 @@ namespace RaftTrainer
                 if (nearest != null)
                 {
                     nearest.Open(player);
-                    statusMessage = "Сундук открыт удаленно (" + minDist.ToString("F1") + "м)!";
+                    statusMessage = "Сундук открыт удаленно (" + Mathf.Sqrt(minSqr).ToString("F1") + "м)!";
                 }
                 else
                 {
@@ -2630,26 +2656,31 @@ namespace RaftTrainer
 
         private void HandleAimbots(Network_Player player)
         {
+            if (!aimbotAnimals && !aimbotItems) return;
             if (player.CameraTransform == null) return;
 
             bool isAimTriggered = aimbotAlwaysOn || Input.GetKey(aimbotKey) || Input.GetMouseButton(1);
             if (!isAimTriggered) return;
 
+            Vector3 camPos = player.CameraTransform.position;
+            Vector3 camFwd = player.CameraTransform.forward;
             Vector3 aimTargetPos = Vector3.zero;
             bool targetFound = false;
             float closestAngle = aimbotFOV;
+            float maxRangeSqr = aimbotRange * aimbotRange;
 
             // 1. Animals / Shark Aimbot
             if (aimbotAnimals)
             {
-                foreach (var s in cachedSharksInfo)
+                int sCount = cachedSharksInfo.Count;
+                for (int i = 0; i < sCount; i++)
                 {
+                    var s = cachedSharksInfo[i];
                     if (s == null || s.transform == null) continue;
                     Vector3 target = s.transform.position + Vector3.up * 0.4f;
-                    Vector3 dir = target - player.CameraTransform.position;
-                    float dist = dir.magnitude;
-                    if (dist > aimbotRange) continue;
-                    float angle = Vector3.Angle(player.CameraTransform.forward, dir);
+                    Vector3 dir = target - camPos;
+                    if (dir.sqrMagnitude > maxRangeSqr) continue;
+                    float angle = Vector3.Angle(camFwd, dir);
                     if (angle < closestAngle)
                     {
                         closestAngle = angle;
@@ -2660,18 +2691,18 @@ namespace RaftTrainer
 
                 if (!targetFound)
                 {
-                    float maxDistSqr = aimbotRange * aimbotRange;
-                    for (int i = 0; i < cachedEntities.Count; i++)
+                    int eCount = cachedEntities.Count;
+                    for (int i = 0; i < eCount; i++)
                     {
                         var ent = cachedEntities[i];
                         if (ent == null || ent.gameObject == player.gameObject || ent.GetComponent<Network_Player>() != null) continue;
                         if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
 
                         Vector3 entPos = ent.transform.position + Vector3.up * 0.6f;
-                        Vector3 dir = (entPos - player.CameraTransform.position);
-                        if (dir.sqrMagnitude > maxDistSqr) continue;
+                        Vector3 dir = entPos - camPos;
+                        if (dir.sqrMagnitude > maxRangeSqr) continue;
 
-                        float angle = Vector3.Angle(player.CameraTransform.forward, dir);
+                        float angle = Vector3.Angle(camFwd, dir);
                         if (angle < closestAngle)
                         {
                             closestAngle = angle;
@@ -2685,16 +2716,17 @@ namespace RaftTrainer
             // 2. Items Aimbot
             if (!targetFound && aimbotItems)
             {
-                foreach (var item in cachedPickups)
+                int pCount = cachedPickups.Count;
+                for (int i = 0; i < pCount; i++)
                 {
+                    var item = cachedPickups[i];
                     if (item == null) continue;
 
                     Vector3 itemPos = item.transform.position + Vector3.up * 0.2f;
-                    Vector3 dir = (itemPos - player.CameraTransform.position);
-                    float dist = dir.magnitude;
-                    if (dist > aimbotRange) continue;
+                    Vector3 dir = itemPos - camPos;
+                    if (dir.sqrMagnitude > maxRangeSqr) continue;
 
-                    float angle = Vector3.Angle(player.CameraTransform.forward, dir);
+                    float angle = Vector3.Angle(camFwd, dir);
                     if (angle < closestAngle)
                     {
                         closestAngle = angle;
@@ -2907,8 +2939,9 @@ namespace RaftTrainer
 
                 var nets = UnityEngine.Object.FindObjectsOfType<ItemNet>();
                 int totalCollected = 0;
-                foreach (var net in nets)
+                for (int i = 0; i < nets.Length; i++)
                 {
+                    var net = nets[i];
                     if (net != null && net.itemCollector != null)
                     {
                         if (net.itemCollector.collectedItems != null)

@@ -65,6 +65,19 @@ namespace RaftTrainer
     // ==========================================
     public partial class TrainerGUI : MonoBehaviour
     {
+        private string activeCheatsHeaderStr = "<b>АКТИВНО: 0</b>";
+        private string activeCheatsMoreStr = "";
+        private string cachedSessionTimeStr = "Время: 00:00";
+        private string cachedSessionItemsStr = "Лут: 0 шт";
+        private string cachedSessionDistStr = "Путь: 0 м";
+        private string perfFpsStr = "<b>60 FPS</b>";
+        private string perfMsEntityStr = "16 мс • 0 сущ.";
+        private string perfBlockCountStr = "Блоков плота: 0";
+        private string machinesEnginesStr = "⚓ Двигатели: 0";
+        private string machinesSmeltersStr = "🏭 Плавильни: 0";
+        private string machinesCookersStr = "🍳 Грили/печи: 0";
+        private string machinesChargersStr = "🔋 Зарядки: 0";
+        private readonly List<ThermalTarget> thermalTargetPool = new List<ThermalTarget>();
         // ==========================================
         // СЕКЦИЯ 1: ПРОФИЛИ, БИНДЫ, HUD, АВТОПИЛОТ, МАКРО
         // ==========================================
@@ -876,7 +889,8 @@ namespace RaftTrainer
                     if (player.Inventory != null && player.Inventory.allSlots != null)
                     {
                         int total = 0;
-                        for (int i = 0; i < player.Inventory.allSlots.Count; i++)
+                        int sCount = player.Inventory.allSlots.Count;
+                        for (int i = 0; i < sCount; i++)
                         {
                             Slot s = player.Inventory.allSlots[i];
                             if (s != null && s.HasValidItemInstance() && s.itemInstance != null) total += s.itemInstance.Amount;
@@ -884,6 +898,9 @@ namespace RaftTrainer
                         if (lastInvTotal >= 0 && total > lastInvTotal) sessionItems += total - lastInvTotal;
                         lastInvTotal = total;
                     }
+                    cachedSessionTimeStr = "Время: " + FormatSessionTime();
+                    cachedSessionItemsStr = "Лут: " + sessionItems + " шт";
+                    cachedSessionDistStr = "Путь: " + FormatDistance(sessionDistance);
                 }
             }
             catch {}
@@ -1155,6 +1172,9 @@ namespace RaftTrainer
                 try { if ((bool)f.GetValue(this)) activeCheatNames.Add(GetFeatureLabel(f.Name)); }
                 catch {}
             }
+            int c = activeCheatNames.Count;
+            activeCheatsHeaderStr = "<b>АКТИВНО: " + c + "</b>";
+            activeCheatsMoreStr = (c > 16) ? ("…и ещё " + (c - 16)) : "";
         }
 
         private void SaveProfileFile(string name)
@@ -1449,11 +1469,11 @@ namespace RaftTrainer
             return raw;
         }
 
+        private static readonly string[] CardinalDirs = { "С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ" };
         private static string CardinalName(float headingDeg)
         {
-            string[] dirs = { "С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ" };
             int idx = ((int)Mathf.Repeat((headingDeg + 22.5f) / 45f, 8f)) % 8;
-            return dirs[idx];
+            return CardinalDirs[idx];
         }
         // ==========================================
         // СЕКЦИЯ 2: ТАХОМЕТР, ТРАССЕРЫ, УРОЖАЙ, ДАШБОРД, КРАФТ
@@ -1604,6 +1624,9 @@ namespace RaftTrainer
                 fpsSamples[fpsSampleIdx] = fpsCurrent;
                 fpsSampleIdx = (fpsSampleIdx + 1) % fpsSamples.Length;
                 if (fpsSampleCount < fpsSamples.Length) fpsSampleCount++;
+
+                perfFpsStr = "<b>" + Mathf.RoundToInt(fpsCurrent) + " FPS</b>";
+                perfMsEntityStr = Mathf.Round(1000f / Mathf.Max(1f, fpsCurrent)) + " мс • " + entityCount + " сущ.";
             }
 
             if (Time.time > nextPerfScanTime)
@@ -1619,6 +1642,8 @@ namespace RaftTrainer
                     blockCount = now;
                 }
                 catch { blockCount = 0; }
+                perfBlockCountStr = "Блоков плота: " + blockCount;
+                perfMsEntityStr = Mathf.Round(1000f / Mathf.Max(1f, fpsCurrent)) + " мс • " + entityCount + " сущ.";
             }
         }
 
@@ -1756,7 +1781,7 @@ namespace RaftTrainer
                     tag.Label = label;
                     tag.Col = col;
                     tag.MaxDist = 60f;
-                    tag.BuildDist = Vector3.Distance(tag.Position, pp);
+                    tag.BuildDist = (tag.Position - pp).sqrMagnitude;
                     cropTags.Add(tag);
                 }
             }
@@ -1819,6 +1844,11 @@ namespace RaftTrainer
                     if (c.batteryL != null) chargersWithBattery++;
                     if (c.batteryR != null) chargersWithBattery++;
                 }
+
+                machinesEnginesStr = "⚓ Двигатели: " + enginesCount + " • топл. " + enginesFuel + "/" + enginesFuelMax + (enginesBurning > 0 ? " 🔥" : "");
+                machinesSmeltersStr = "🏭 Плавильни: " + smeltersCount + " • топл. " + smeltersFuel + "/" + smeltersFuelMax;
+                machinesCookersStr = "🍳 Грили/печи: " + cookersCount + " • топл. " + cookersFuel + "/" + cookersFuelMax;
+                machinesChargersStr = "🔋 Зарядки: " + chargersTotal + " • батареек " + chargersWithBattery;
             }
             catch {}
         }
@@ -3004,9 +3034,18 @@ namespace RaftTrainer
                         if (n.Contains(thermalKeywords[k])) { predator = true; break; }
                     if (!predator) continue;
 
-                    ThermalTarget t = new ThermalTarget();
+                    ThermalTarget t;
+                    if (thermalTargets.Count < thermalTargetPool.Count)
+                    {
+                        t = thermalTargetPool[thermalTargets.Count];
+                    }
+                    else
+                    {
+                        t = new ThermalTarget();
+                        thermalTargetPool.Add(t);
+                    }
                     t.T = ent.transform;
-                    t.Col = n.Contains("shark") || n.Contains("boss") ? new Color(1f, 0.2f, 0.3f) : new Color(1f, 0.55f, 0.1f);
+                    t.Col = (n.Contains("shark") || n.Contains("boss")) ? new Color(1f, 0.2f, 0.3f) : new Color(1f, 0.55f, 0.1f);
                     thermalTargets.Add(t);
                 }
             }
@@ -3253,11 +3292,12 @@ namespace RaftTrainer
         private void DrawPlayersTableHud()
         {
             if (!hudPlayersTable) return;
+            int rows = v14Players.Count;
+            if (rows == 0) return;
             try
             {
                 Network_Player me = ComponentManager<Network_Player>.Value;
                 float w = 224f;
-                int rows = v14Players.Count;
                 float rowH = hudTeammateStatus ? 64f : 28f;
                 float h = rows * rowH + 26f;
                 Rect panel = new Rect(Screen.width - w - 10f, 192f, w, h);
