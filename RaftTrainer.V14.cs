@@ -78,6 +78,12 @@ namespace RaftTrainer
         private string machinesCookersStr = "🍳 Грили/печи: 0";
         private string machinesChargersStr = "🔋 Зарядки: 0";
         private readonly List<ThermalTarget> thermalTargetPool = new List<ThermalTarget>();
+        private readonly List<EspTag> cropTagsPool = new List<EspTag>();
+        private readonly List<TeammateInfo> teammatePool = new List<TeammateInfo>();
+        private readonly List<TrailPoint> trailPointPool = new List<TrailPoint>();
+        private FishingBaitHandler cachedBaitHandler = null;
+        private string cachedMapScaleStr = "";
+        private float lastMapScaleZoom = -1f;
         // ==========================================
         // СЕКЦИЯ 1: ПРОФИЛИ, БИНДЫ, HUD, АВТОПИЛОТ, МАКРО
         // ==========================================
@@ -1715,26 +1721,48 @@ namespace RaftTrainer
             {
                 var info = cachedSharksInfo[i];
                 if (info == null || info.transform == null) continue;
-                TrailPoint tp = new TrailPoint();
+                TrailPoint tp;
+                if (trailPointPool.Count > 0)
+                {
+                    int last = trailPointPool.Count - 1;
+                    tp = trailPointPool[last];
+                    trailPointPool.RemoveAt(last);
+                }
+                else
+                {
+                    tp = new TrailPoint();
+                }
                 tp.Pos = info.transform.position;
                 tp.T = Time.time;
                 sharkTrail.Add(tp);
             }
             float cutoff = Time.time - 30f;
-            while (sharkTrail.Count > 0 && sharkTrail[0].T < cutoff) sharkTrail.RemoveAt(0);
-            while (sharkTrail.Count > 200) sharkTrail.RemoveAt(0);
+            while (sharkTrail.Count > 0 && sharkTrail[0].T < cutoff)
+            {
+                trailPointPool.Add(sharkTrail[0]);
+                sharkTrail.RemoveAt(0);
+            }
+            while (sharkTrail.Count > 200)
+            {
+                trailPointPool.Add(sharkTrail[0]);
+                sharkTrail.RemoveAt(0);
+            }
         }
 
         private void DrawSharkTrail(Camera cam)
         {
             if (sharkTrail.Count == 0) return;
+            Vector3 camPos = cam.transform.position;
+            Vector3 camFwd = cam.transform.forward;
             Color prev = GUI.color;
-            for (int i = 0; i < sharkTrail.Count; i++)
+            int tCount = sharkTrail.Count;
+            for (int i = 0; i < tCount; i++)
             {
                 TrailPoint tp = sharkTrail[i];
                 float age = Time.time - tp.T;
                 float alpha = 1f - Mathf.Clamp01(age / 30f);
                 if (alpha <= 0.02f) continue;
+                if (Vector3.Dot(camFwd, (tp.Pos - camPos)) <= 0.1f) continue;
                 Vector3 sp = cam.WorldToScreenPoint(tp.Pos);
                 if (sp.z <= 0.3f) continue;
                 GUI.color = new Color(1f, 0.3f, 0.4f, alpha * 0.65f);
@@ -1776,7 +1804,16 @@ namespace RaftTrainer
                         label = "🌱 Урожай " + Mathf.RoundToInt(pct * 100f) + "%";
                         col = Color.Lerp(new Color(1f, 0.6f, 0.2f), new Color(0.3f, 1f, 0.5f), pct);
                     }
-                    EspTag tag = new EspTag();
+                    EspTag tag;
+                    if (cropTags.Count < cropTagsPool.Count)
+                    {
+                        tag = cropTagsPool[cropTags.Count];
+                    }
+                    else
+                    {
+                        tag = new EspTag();
+                        cropTagsPool.Add(tag);
+                    }
                     tag.Position = pl.transform.position;
                     tag.Label = label;
                     tag.Col = col;
@@ -2465,8 +2502,12 @@ namespace RaftTrainer
                 Rect panel = new Rect(center.x - half, center.y - half, size, size);
                 GUI.Box(panel, GUIContent.none, hudPanelStyle);
                 GUI.Label(new Rect(panel.x + 6f, panel.y + 2f, 160f, 16f), "<b>🗺 КАРТА МИРА</b>", hudTitleStyle);
-                GUI.Label(new Rect(panel.x + size - 130f, panel.y + 2f, 124f, 16f),
-                    "1 px = " + (1f / Mathf.Max(0.05f, worldMapZoom)).ToString("F1") + " м", hudTextStyle);
+                if (worldMapZoom != lastMapScaleZoom || string.IsNullOrEmpty(cachedMapScaleStr))
+                {
+                    lastMapScaleZoom = worldMapZoom;
+                    cachedMapScaleStr = "1 px = " + (1f / Mathf.Max(0.05f, worldMapZoom)).ToString("F1") + " м";
+                }
+                GUI.Label(new Rect(panel.x + size - 130f, panel.y + 2f, 124f, 16f), cachedMapScaleStr, hudTextStyle);
 
                 Vector3 pp = Vector3.zero;
                 Network_Player player = ComponentManager<Network_Player>.Value;
@@ -2870,8 +2911,9 @@ namespace RaftTrainer
                 // Авто-выбор наживки по ключевому слову
                 if (!string.IsNullOrEmpty(baitKeyword))
                 {
-                    FishingBaitHandler bait = player.GetComponent<FishingBaitHandler>();
-                    if (bait == null) bait = UnityEngine.Object.FindObjectOfType<FishingBaitHandler>();
+                    if (cachedBaitHandler == null && player != null)
+                        cachedBaitHandler = player.GetComponent<FishingBaitHandler>() ?? UnityEngine.Object.FindObjectOfType<FishingBaitHandler>();
+                    FishingBaitHandler bait = cachedBaitHandler;
                     if (bait != null)
                     {
                         Item_Base want = FindBaitInInventory(player, baitKeyword.ToLower());
@@ -3212,7 +3254,16 @@ namespace RaftTrainer
                     if (localPlayer != null && p.gameObject == localPlayer.gameObject) continue;
                     v14Players.Add(p);
 
-                    TeammateInfo ti = new TeammateInfo();
+                    TeammateInfo ti;
+                    if (teammates.Count < teammatePool.Count)
+                    {
+                        ti = teammatePool[teammates.Count];
+                    }
+                    else
+                    {
+                        ti = new TeammateInfo();
+                        teammatePool.Add(ti);
+                    }
                     ti.Player = p;
                     try { if (p.playerNameTextMesh != null && !string.IsNullOrEmpty(p.playerNameTextMesh.text)) ti.Name = p.playerNameTextMesh.text; } catch {}
                     ti.Dist = localPlayer != null ? Vector3.Distance(localPlayer.transform.position, p.transform.position) : 0f;

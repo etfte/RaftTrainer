@@ -432,13 +432,20 @@ namespace RaftTrainer
             Camera cam = GetCachedCamera();
             if (cam == null) return;
 
+            Vector3 camPos = cam.transform.position;
+            Vector3 camFwd = cam.transform.forward;
+
             Color prev = GUI.color;
-            for (int i = 0; i < list.Count; i++)
+            int count = list.Count;
+            for (int i = 0; i < count; i++)
             {
                 var block = list[i];
                 if (block == null) continue;
 
-                Vector3 sp = cam.WorldToScreenPoint(block.transform.position + Vector3.up * 0.5f);
+                Vector3 bPos = block.transform.position;
+                if (Vector3.Dot(camFwd, (bPos - camPos)) <= 0.1f) continue;
+
+                Vector3 sp = cam.WorldToScreenPoint(bPos + Vector3.up * 0.5f);
                 if (sp.z <= 0.5f || sp.x < -60f || sp.x > Screen.width + 60f || sp.y < -60f || sp.y > Screen.height + 60f) continue;
 
                 float size = Mathf.Clamp(900f / sp.z, 8f, 140f);

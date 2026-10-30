@@ -2463,27 +2463,23 @@ namespace RaftTrainer
                 Vector3 playerPos = player.transform.position;
                 float rSqr = hostileAuraRadius * hostileAuraRadius;
 
-                for (int i = 0; i < cachedEntities.Count; i++)
+                int eCount = cachedEntities.Count;
+                for (int i = 0; i < eCount; i++)
                 {
                     var ent = cachedEntities[i];
                     if (ent == null || ent.gameObject == player.gameObject) continue;
 
-                    // Don't kill domestic animals
+                    if ((ent.transform.position - playerPos).sqrMagnitude > rSqr) continue;
+                    if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
                     if (ent.GetComponent<AI_NetworkBehaviour_Domestic>() != null) continue;
 
-                    if ((ent.transform.position - playerPos).sqrMagnitude <= rSqr)
+                    if (host != null)
                     {
-                        if (ent.stat_health != null && !ent.stat_health.IsDead())
-                        {
-                            if (host != null)
-                            {
-                                host.DamageEntity(ent, ent.transform, 999999f, ent.transform.position, Vector3.up, EntityType.Enemy, null);
-                            }
-                            else
-                            {
-                                ent.stat_health.Value = 0f;
-                            }
-                        }
+                        host.DamageEntity(ent, ent.transform, 999999f, ent.transform.position, Vector3.up, EntityType.Enemy, null);
+                    }
+                    else if (ent.stat_health != null)
+                    {
+                        ent.stat_health.Value = 0f;
                     }
                 }
             }
@@ -2695,12 +2691,14 @@ namespace RaftTrainer
                     for (int i = 0; i < eCount; i++)
                     {
                         var ent = cachedEntities[i];
-                        if (ent == null || ent.gameObject == player.gameObject || ent.GetComponent<Network_Player>() != null) continue;
-                        if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
+                        if (ent == null || ent.gameObject == player.gameObject) continue;
 
                         Vector3 entPos = ent.transform.position + Vector3.up * 0.6f;
                         Vector3 dir = entPos - camPos;
                         if (dir.sqrMagnitude > maxRangeSqr) continue;
+
+                        if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
+                        if (ent.GetComponent<Network_Player>() != null) continue;
 
                         float angle = Vector3.Angle(camFwd, dir);
                         if (angle < closestAngle)
@@ -3115,11 +3113,15 @@ namespace RaftTrainer
         {
             if (allCatalogItems == null) return;
 
-            filteredCatalogItems = new List<Item_Base>();
-            string searchLower = spawnerSearch.ToLower().Trim();
+            if (filteredCatalogItems == null) filteredCatalogItems = new List<Item_Base>();
+            else filteredCatalogItems.Clear();
 
-            foreach (var item in allCatalogItems)
+            string searchLower = spawnerSearch.ToLower().Trim();
+            int catCount = allCatalogItems.Count;
+
+            for (int i = 0; i < catCount; i++)
             {
+                var item = allCatalogItems[i];
                 if (item == null) continue;
 
                 string title = GetItemTitle(item).ToLower();
