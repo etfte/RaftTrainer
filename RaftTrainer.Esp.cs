@@ -41,6 +41,29 @@ namespace RaftTrainer
         private static readonly Color BlockDamagedColor = new Color(1f, 0.25f, 0.30f);
         private static readonly Color BlockHealthyColor = new Color(0.20f, 1f, 0.60f);
         private static readonly Color BlockSelectedColor = new Color(1f, 0.85f, 0.20f);
+        private readonly List<SharkESPInfo> sharkInfoPool = new List<SharkESPInfo>();
+        private readonly List<SharkESPInfo> espNameSharkPool = new List<SharkESPInfo>();
+
+        private static readonly Color TagSharkCol = new Color(1f, 0.25f, 0.35f);
+        private static readonly Color TagBarrelCol = new Color(1f, 0.85f, 0.2f);
+        private static readonly Color TagTreasureCol = new Color(1f, 0.85f, 0.1f);
+        private static readonly Color TagWaypointCol = new Color(0.2f, 0.9f, 1f);
+        private static readonly Color TagRaftCol = new Color(0.3f, 0.8f, 1f);
+        private static readonly Color TagPlayerCol = new Color(0.2f, 1f, 0.4f);
+
+        private static readonly Color ColItemWood = new Color(0.9f, 0.7f, 0.4f);
+        private static readonly Color ColItemPlastic = new Color(0.4f, 0.85f, 1f);
+        private static readonly Color ColItemScrap = new Color(0.75f, 0.8f, 0.9f);
+        private static readonly Color ColItemTitanium = new Color(0.3f, 1f, 0.7f);
+        private static readonly Color ColItemDefault = new Color(0.85f, 0.85f, 0.95f);
+
+        private static readonly Color ColOreTitanium = new Color(0.3f, 1f, 0.6f);
+        private static readonly Color ColOreMetal = new Color(0.4f, 0.8f, 1f);
+        private static readonly Color ColOreCopper = new Color(1f, 0.6f, 0.2f);
+        private static readonly Color ColOreSeaweed = new Color(0.4f, 1f, 0.3f);
+        private static readonly Color ColOreSand = new Color(0.9f, 0.9f, 0.4f);
+        private static readonly Color ColOreClam = new Color(0.9f, 0.4f, 1f);
+        private static readonly Color ColOreDefault = new Color(0.2f, 0.9f, 1f);
 
         static TrainerGUI()
         {
@@ -144,6 +167,44 @@ namespace RaftTrainer
             catch {}
         }
 
+        private SharkESPInfo GetPooledSharkInfo(Transform t, string n, float h, float maxH)
+        {
+            SharkESPInfo info;
+            if (cachedSharksInfo.Count < sharkInfoPool.Count)
+            {
+                info = sharkInfoPool[cachedSharksInfo.Count];
+            }
+            else
+            {
+                info = new SharkESPInfo();
+                sharkInfoPool.Add(info);
+            }
+            info.transform = t;
+            info.name = n;
+            info.health = h;
+            info.maxHealth = maxH;
+            return info;
+        }
+
+        private SharkESPInfo GetPooledNameShark(Transform t, string n, float h, float maxH)
+        {
+            SharkESPInfo info;
+            if (espNameSharks.Count < espNameSharkPool.Count)
+            {
+                info = espNameSharkPool[espNameSharks.Count];
+            }
+            else
+            {
+                info = new SharkESPInfo();
+                espNameSharkPool.Add(info);
+            }
+            info.transform = t;
+            info.name = n;
+            info.health = h;
+            info.maxHealth = maxH;
+            return info;
+        }
+
         private void RefreshSharkCache(float now)
         {
             cachedSharksInfo.Clear();
@@ -166,7 +227,7 @@ namespace RaftTrainer
                     cur = s.entityComponent.stat_health.Value;
                     max = s.entityComponent.stat_health.Max;
                 }
-                cachedSharksInfo.Add(new SharkESPInfo { transform = s.transform, name = "Акула", health = cur, maxHealth = max });
+                cachedSharksInfo.Add(GetPooledSharkInfo(s.transform, "Акула", cur, max));
                 seen.Add(s.transform);
             }
 
@@ -185,7 +246,7 @@ namespace RaftTrainer
                         cur = a.networkEntity.stat_health.Value;
                         max = a.networkEntity.stat_health.Max;
                     }
-                    cachedSharksInfo.Add(new SharkESPInfo { transform = a.transform, name = "Акула", health = cur, maxHealth = max });
+                    cachedSharksInfo.Add(GetPooledSharkInfo(a.transform, "Акула", cur, max));
                     seen.Add(a.transform);
                 }
 
@@ -203,7 +264,7 @@ namespace RaftTrainer
                         float cur = ent.stat_health != null ? ent.stat_health.Value : 100f;
                         float max = ent.stat_health != null ? ent.stat_health.Max : 100f;
                         string sName = (ContainsIgnoreCase(n, "varuna") || ContainsIgnoreCase(n, "boss")) ? "Босс-акула" : "Акула";
-                        espNameSharks.Add(new SharkESPInfo { transform = ent.transform, name = sName, health = cur, maxHealth = max });
+                        espNameSharks.Add(GetPooledNameShark(ent.transform, sName, cur, max));
                     }
                 }
             }
@@ -248,8 +309,9 @@ namespace RaftTrainer
 
         private static bool IsOreObject(PickupItem it)
         {
-            string n = it.name.ToLower();
-            return n.Contains("ore") || n.Contains("clay") || n.Contains("sand") || n.Contains("seaweed") || n.Contains("clam") || n.Contains("dirt");
+            string n = it.name;
+            return ContainsIgnoreCase(n, "ore") || ContainsIgnoreCase(n, "clay") || ContainsIgnoreCase(n, "sand") ||
+                   ContainsIgnoreCase(n, "seaweed") || ContainsIgnoreCase(n, "clam") || ContainsIgnoreCase(n, "dirt");
         }
 
         private void AddEspTag(Vector3 position, string label, Color col, float maxDist, float buildDist, float offset = 0f)
@@ -306,7 +368,7 @@ namespace RaftTrainer
                     if (info == null || info.transform == null) continue;
                     string label = info.name + " " + info.health.ToString("F0") + "/" + info.maxHealth.ToString("F0") + " HP";
                     Vector3 sPos = info.transform.position + Vector3.up * 0.8f;
-                    AddEspTag(sPos, label, new Color(1f, 0.25f, 0.35f), 2000f, (sPos - pp).sqrMagnitude);
+                    AddEspTag(sPos, label, TagSharkCol, 2000f, (sPos - pp).sqrMagnitude);
                 }
             }
 
@@ -316,13 +378,14 @@ namespace RaftTrainer
                 {
                     var p = cachedPickups[i];
                     if (p == null) continue;
-                    string n = p.name.ToLower();
-                    bool box = n.Contains("barrel") || n.Contains("crate") || n.Contains("box");
+                    string n = p.name;
+                    bool isBarrel = ContainsIgnoreCase(n, "barrel");
+                    bool box = isBarrel || ContainsIgnoreCase(n, "crate") || ContainsIgnoreCase(n, "box");
                     Vector3 iPos = p.transform.position + Vector3.up * 0.3f;
                     float dSqr = (iPos - pp).sqrMagnitude;
                     if (box)
                     {
-                        if (espBarrels) AddEspTag(iPos, n.Contains("barrel") ? "БОЧКА" : "ЯЩИК", new Color(1f, 0.85f, 0.2f), espItemMaxDist, dSqr);
+                        if (espBarrels) AddEspTag(iPos, isBarrel ? "БОЧКА" : "ЯЩИК", TagBarrelCol, espItemMaxDist, dSqr);
                     }
                     else if (espAllItems)
                     {
@@ -351,7 +414,7 @@ namespace RaftTrainer
                     var tp = cachedTreasures[i];
                     if (tp == null) continue;
                     Vector3 tPos = tp.transform.position;
-                    AddEspTag(tPos, "КЛАД", new Color(1f, 0.85f, 0.1f), 120f, (tPos - pp).sqrMagnitude);
+                    AddEspTag(tPos, "КЛАД", TagTreasureCol, 120f, (tPos - pp).sqrMagnitude);
                 }
             }
 
@@ -360,7 +423,7 @@ namespace RaftTrainer
                 for (int i = 0; i < waypoints.Count; i++)
                 {
                     Vector3 wPos = waypoints[i].position + Vector3.up * 2f;
-                    AddEspTag(wPos, "ТОЧКА " + waypoints[i].name, new Color(0.2f, 0.9f, 1f), 3000f, (wPos - pp).sqrMagnitude);
+                    AddEspTag(wPos, "ТОЧКА " + waypoints[i].name, TagWaypointCol, 3000f, (wPos - pp).sqrMagnitude);
                 }
             }
 
@@ -395,8 +458,9 @@ namespace RaftTrainer
                 if (Vector3.Dot(camFwd, toTag) <= 0.1f) continue;
 
                 float maxD = tag.MaxDist;
-                if (toTag.sqrMagnitude > maxD * maxD) continue;
-                float dist = toTag.magnitude;
+                float sqrD = toTag.sqrMagnitude;
+                if (sqrD > maxD * maxD) continue;
+                float dist = Mathf.Sqrt(sqrD);
 
                 Vector3 sp = cam.WorldToScreenPoint(tag.Position + Vector3.up * tag.Offset);
                 if (sp.z <= 0.3f || sp.x < -120f || sp.x > Screen.width + 120f || sp.y < -60f || sp.y > Screen.height + 60f) continue;
@@ -419,7 +483,8 @@ namespace RaftTrainer
             Rect rect = new Rect(x - size.x * 0.5f, y - size.y * 0.5f, size.x + 8f, size.y + 4f);
 
             Color oldCol = GUI.color;
-            GUI.color = new Color(col.r, col.g, col.b, 1f);
+            col.a = 1f;
+            GUI.color = col;
             GUI.Box(rect, sharedContent, espBoxStyle);
             GUI.color = oldCol;
         }
@@ -587,22 +652,22 @@ namespace RaftTrainer
 
         private static Color GetItemTagColor(string rus)
         {
-            if (ContainsIgnoreCase(rus, "доска") || ContainsIgnoreCase(rus, "дерево")) return new Color(0.9f, 0.7f, 0.4f);
-            if (ContainsIgnoreCase(rus, "пластик")) return new Color(0.4f, 0.85f, 1f);
-            if (ContainsIgnoreCase(rus, "хлам") || ContainsIgnoreCase(rus, "металл")) return new Color(0.75f, 0.8f, 0.9f);
-            if (ContainsIgnoreCase(rus, "титан")) return new Color(0.3f, 1f, 0.7f);
-            return new Color(0.85f, 0.85f, 0.95f);
+            if (ContainsIgnoreCase(rus, "доска") || ContainsIgnoreCase(rus, "дерево")) return ColItemWood;
+            if (ContainsIgnoreCase(rus, "пластик")) return ColItemPlastic;
+            if (ContainsIgnoreCase(rus, "хлам") || ContainsIgnoreCase(rus, "металл")) return ColItemScrap;
+            if (ContainsIgnoreCase(rus, "титан")) return ColItemTitanium;
+            return ColItemDefault;
         }
 
         private static Color GetOreTagColor(string rus)
         {
-            if (ContainsIgnoreCase(rus, "титан")) return new Color(0.3f, 1f, 0.6f);
-            if (ContainsIgnoreCase(rus, "металл")) return new Color(0.4f, 0.8f, 1f);
-            if (ContainsIgnoreCase(rus, "мед")) return new Color(1f, 0.6f, 0.2f);
-            if (ContainsIgnoreCase(rus, "водоросл")) return new Color(0.4f, 1f, 0.3f);
-            if (ContainsIgnoreCase(rus, "глин") || ContainsIgnoreCase(rus, "песок")) return new Color(0.9f, 0.9f, 0.4f);
-            if (ContainsIgnoreCase(rus, "моллюск")) return new Color(0.9f, 0.4f, 1f);
-            return new Color(0.2f, 0.9f, 1f);
+            if (ContainsIgnoreCase(rus, "титан")) return ColOreTitanium;
+            if (ContainsIgnoreCase(rus, "металл")) return ColOreMetal;
+            if (ContainsIgnoreCase(rus, "мед")) return ColOreCopper;
+            if (ContainsIgnoreCase(rus, "водоросл")) return ColOreSeaweed;
+            if (ContainsIgnoreCase(rus, "глин") || ContainsIgnoreCase(rus, "песок")) return ColOreSand;
+            if (ContainsIgnoreCase(rus, "моллюск")) return ColOreClam;
+            return ColOreDefault;
         }
     }
 }

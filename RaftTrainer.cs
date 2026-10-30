@@ -179,6 +179,23 @@ namespace RaftTrainer
         private Storage_Small[] cachedChests = null;
         private float nextMachineryScanTime = 0f;
         private float nextAutoCropHarvestTime = 0f;
+        private AI_NetworkBehaviour_Domestic_Resource[] cachedDomesticResources = null;
+        private float nextDomesticResourcesScanTime = 0f;
+        private AI_NetworkBehaviour_Domestic[] cachedDomesticAnimals = null;
+        private float nextDomesticAnimalsScanTime = 0f;
+        private Plant[] cachedPlants = null;
+        private float nextPlantsScanTime = 0f;
+        private Placeable_BiofuelExtractor[] cachedBiofuelExtractors = null;
+        private float nextBiofuelScanTime = 0f;
+        private BeeHive[] cachedBeeHives = null;
+        private float nextBeeHiveScanTime = 0f;
+        private Cropplot_Grass[] cachedGrassPlots = null;
+        private float nextGrassScanTime = 0f;
+        private Cropplot[] cachedCropplots = null;
+        private float nextCropplotsScanTime = 0f;
+        private static BlockCreator cachedBlockCreator = null;
+        private static RaftBounds cachedRaftBounds = null;
+        private static PlantManager cachedPlantManager = null;
 
         // PLAYER & CRAFTING
         public bool godMode = true;
@@ -219,7 +236,7 @@ namespace RaftTrainer
         private float nextAutoFishTime = 0f;
         private float nextDomesticProdTime = 0f;
         private float nextHostileAuraTime = 0f;
-        private MethodInfo mPullItems = null;
+        private static readonly MethodInfo mPullItems = typeof(FishingRod).GetMethod("PullItemsFromSea", BindingFlags.NonPublic | BindingFlags.Instance);
 
         // V9 ADDITIONS
         public bool noBuildRestrictions = false;
@@ -1204,13 +1221,20 @@ namespace RaftTrainer
             if (player == null || player.Inventory == null) return;
             try
             {
-                var animals = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Domestic_Resource>();
-                int got = 0;
-                for (int i = 0; i < animals.Length; i++)
+                if (cachedDomesticResources == null || Time.time > nextDomesticResourcesScanTime)
                 {
-                    var animal = animals[i];
+                    nextDomesticResourcesScanTime = Time.time + 3.0f;
+                    cachedDomesticResources = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Domestic_Resource>();
+                }
+                if (cachedDomesticResources == null) return;
+
+                int got = 0;
+                Vector3 pp = player.transform.position;
+                for (int i = 0; i < cachedDomesticResources.Length; i++)
+                {
+                    var animal = cachedDomesticResources[i];
                     if (animal == null || animal.Resource == null || !animal.Resource.IsReady) continue;
-                    if (Vector3.Distance(animal.transform.position, player.transform.position) > 45f) continue;
+                    if ((animal.transform.position - pp).sqrMagnitude > 2025f) continue;
 
                     Item_Base item = animal.Resource.HarvestResource();
                     if (item != null)
@@ -1905,13 +1929,21 @@ namespace RaftTrainer
         {
             try
             {
-                var doms = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Domestic>();
-                foreach (var d in doms)
+                if (cachedDomesticAnimals == null || Time.time > nextDomesticAnimalsScanTime)
                 {
-                    if (d != null && !d.IsTamed)
+                    nextDomesticAnimalsScanTime = Time.time + 3.0f;
+                    cachedDomesticAnimals = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Domestic>();
+                }
+                if (cachedDomesticAnimals != null)
+                {
+                    for (int i = 0; i < cachedDomesticAnimals.Length; i++)
                     {
-                        d.IsTamed = true;
-                        d.QuickTameLate();
+                        var d = cachedDomesticAnimals[i];
+                        if (d != null && !d.IsTamed)
+                        {
+                            d.IsTamed = true;
+                            d.QuickTameLate();
+                        }
                     }
                 }
             }
@@ -1920,6 +1952,7 @@ namespace RaftTrainer
 
         private void UpdateClearWater()
         {
+            if (clearWater == lastClearWaterState && !clearWater) return;
             try
             {
                 if (clearWater != lastClearWaterState || Time.time > nextClearWaterScanTime)
@@ -2069,15 +2102,30 @@ namespace RaftTrainer
         {
             try
             {
-                var plots = UnityEngine.Object.FindObjectsOfType<Cropplot>();
                 int watered = 0;
-                for (int i = 0; i < plots.Length; i++)
+                var staticPlots = PlantManager.allCropplots;
+                if (staticPlots != null && staticPlots.Count > 0)
                 {
-                    var cp = plots[i];
-                    if (cp != null)
+                    for (int i = 0; i < staticPlots.Count; i++)
                     {
-                        cp.AddWater(false);
-                        watered++;
+                        var cp = staticPlots[i];
+                        if (cp != null) { cp.AddWater(false); watered++; }
+                    }
+                }
+                else
+                {
+                    if (cachedCropplots == null || Time.time > nextCropplotsScanTime)
+                    {
+                        nextCropplotsScanTime = Time.time + 3.5f;
+                        cachedCropplots = UnityEngine.Object.FindObjectsOfType<Cropplot>();
+                    }
+                    if (cachedCropplots != null)
+                    {
+                        for (int i = 0; i < cachedCropplots.Length; i++)
+                        {
+                            var cp = cachedCropplots[i];
+                            if (cp != null) { cp.AddWater(false); watered++; }
+                        }
                     }
                 }
                 statusMessage = "Полито грядок: " + watered;
@@ -2092,15 +2140,22 @@ namespace RaftTrainer
         {
             try
             {
-                var plants = UnityEngine.Object.FindObjectsOfType<Plant>();
-                int count = 0;
-                for (int i = 0; i < plants.Length; i++)
+                if (cachedPlants == null || Time.time > nextPlantsScanTime)
                 {
-                    var p = plants[i];
-                    if (p != null)
+                    nextPlantsScanTime = Time.time + 3.0f;
+                    cachedPlants = UnityEngine.Object.FindObjectsOfType<Plant>();
+                }
+                int count = 0;
+                if (cachedPlants != null)
+                {
+                    for (int i = 0; i < cachedPlants.Length; i++)
                     {
-                        p.Complete();
-                        count++;
+                        var p = cachedPlants[i];
+                        if (p != null)
+                        {
+                            p.Complete();
+                            count++;
+                        }
                     }
                 }
                 statusMessage = "Созрело растений: " + count;
@@ -2287,27 +2342,18 @@ namespace RaftTrainer
             }
         }
 
-                private void ApplyAutoFishing(Network_Player player)
+        private void ApplyAutoFishing(Network_Player player)
         {
-            if (player == null) return;
+            if (player == null || Time.time < nextAutoFishTime) return;
+            nextAutoFishTime = Time.time + 1.6f;
             try
             {
-                var rod = UnityEngine.Object.FindObjectOfType<FishingRod>();
+                var rod = player.GetComponentInChildren<FishingRod>() ?? UnityEngine.Object.FindObjectOfType<FishingRod>();
                 if (rod == null) return;
-
-                if (mPullItems == null)
+                if (mPullItems != null)
                 {
-                    mPullItems = typeof(FishingRod).GetMethod("PullItemsFromSea", BindingFlags.NonPublic | BindingFlags.Instance);
-                }
-
-                if (Time.time > nextAutoFishTime)
-                {
-                    nextAutoFishTime = Time.time + 1.6f;
-                    if (mPullItems != null)
-                    {
-                        mPullItems.Invoke(rod, null);
-                        statusMessage = "Авто-рыбалка: рыба поймана в сумку!";
-                    }
+                    mPullItems.Invoke(rod, null);
+                    statusMessage = "Авто-рыбалка: рыба поймана в сумку!";
                 }
             }
             catch {}
@@ -2317,15 +2363,23 @@ namespace RaftTrainer
         {
             try
             {
-                var domesticResources = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Domestic_Resource>();
-                foreach (var d in domesticResources)
+                if (cachedDomesticResources == null || Time.time > nextDomesticResourcesScanTime)
                 {
-                    if (d != null && d.Resource != null)
+                    nextDomesticResourcesScanTime = Time.time + 3.0f;
+                    cachedDomesticResources = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Domestic_Resource>();
+                }
+                if (cachedDomesticResources != null)
+                {
+                    for (int i = 0; i < cachedDomesticResources.Length; i++)
                     {
-                        if (!d.Resource.IsReady)
+                        var d = cachedDomesticResources[i];
+                        if (d != null && d.Resource != null)
                         {
-                            d.Resource.IsReady = true;
-                            d.Resource.SendIsReady();
+                            if (!d.Resource.IsReady)
+                            {
+                                d.Resource.IsReady = true;
+                                d.Resource.SendIsReady();
+                            }
                         }
                     }
                 }
@@ -3425,8 +3479,10 @@ namespace RaftTrainer
         {
             try
             {
-                var bc = UnityEngine.Object.FindObjectOfType<BlockCreator>();
-                var bounds = UnityEngine.Object.FindObjectOfType<RaftBounds>();
+                if (cachedBlockCreator == null) cachedBlockCreator = UnityEngine.Object.FindObjectOfType<BlockCreator>();
+                if (cachedRaftBounds == null) cachedRaftBounds = UnityEngine.Object.FindObjectOfType<RaftBounds>();
+                var bc = cachedBlockCreator;
+                var bounds = cachedRaftBounds;
                 Raft raft = ComponentManager<Raft>.Value;
                 if (bc == null || bounds == null || raft == null) { statusMessage = "Плот не найден"; return; }
 
@@ -3787,10 +3843,16 @@ namespace RaftTrainer
             try
             {
                 if (player == null || player.Inventory == null) return;
-                var plants = UnityEngine.Object.FindObjectsOfType<Plant>();
-                for (int i = 0; i < plants.Length; i++)
+                if (cachedPlants == null || Time.time > nextPlantsScanTime)
                 {
-                    var p = plants[i];
+                    nextPlantsScanTime = Time.time + 3.0f;
+                    cachedPlants = UnityEngine.Object.FindObjectsOfType<Plant>();
+                }
+                if (cachedPlants == null) return;
+
+                for (int i = 0; i < cachedPlants.Length; i++)
+                {
+                    var p = cachedPlants[i];
                     if (p == null) continue;
 
                     bool isRipe = false;
@@ -3815,10 +3877,16 @@ namespace RaftTrainer
         {
             try
             {
-                var extractors = UnityEngine.Object.FindObjectsOfType<Placeable_BiofuelExtractor>();
-                for (int i = 0; i < extractors.Length; i++)
+                if (cachedBiofuelExtractors == null || Time.time > nextBiofuelScanTime)
                 {
-                    var ex = extractors[i];
+                    nextBiofuelScanTime = Time.time + 3.5f;
+                    cachedBiofuelExtractors = UnityEngine.Object.FindObjectsOfType<Placeable_BiofuelExtractor>();
+                }
+                if (cachedBiofuelExtractors == null) return;
+
+                for (int i = 0; i < cachedBiofuelExtractors.Length; i++)
+                {
+                    var ex = cachedBiofuelExtractors[i];
                     if (ex == null) continue;
                     if (ex.outputTank != null) ex.outputTank.SetTankAmount(ex.outputTank.maxCapacity);
                     if (ex.processingTank != null) ex.processingTank.SetTankAmount(ex.processingTank.maxCapacity);
@@ -3832,10 +3900,16 @@ namespace RaftTrainer
         {
             try
             {
-                var hives = UnityEngine.Object.FindObjectsOfType<BeeHive>();
-                for (int i = 0; i < hives.Length; i++)
+                if (cachedBeeHives == null || Time.time > nextBeeHiveScanTime)
                 {
-                    var h = hives[i];
+                    nextBeeHiveScanTime = Time.time + 3.5f;
+                    cachedBeeHives = UnityEngine.Object.FindObjectsOfType<BeeHive>();
+                }
+                if (cachedBeeHives == null) return;
+
+                for (int i = 0; i < cachedBeeHives.Length; i++)
+                {
+                    var h = cachedBeeHives[i];
                     if (h == null) continue;
                     h.UpdateHoneyLevel(3);
                     h.currentHoneyLevelIndex = 3;
@@ -3872,10 +3946,16 @@ namespace RaftTrainer
         {
             try
             {
-                var grassPlots = UnityEngine.Object.FindObjectsOfType<Cropplot_Grass>();
-                for (int i = 0; i < grassPlots.Length; i++)
+                if (cachedGrassPlots == null || Time.time > nextGrassScanTime)
                 {
-                    var gp = grassPlots[i];
+                    nextGrassScanTime = Time.time + 3.5f;
+                    cachedGrassPlots = UnityEngine.Object.FindObjectsOfType<Cropplot_Grass>();
+                }
+                if (cachedGrassPlots == null) return;
+
+                for (int i = 0; i < cachedGrassPlots.Length; i++)
+                {
+                    var gp = cachedGrassPlots[i];
                     if (gp == null) continue;
                     gp.AddWater(false);
                 }

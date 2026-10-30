@@ -38,7 +38,8 @@ namespace RaftTrainer
     public class ThermalTarget
     {
         public Transform T;
-        public Color Col;
+        public Color ColBg;
+        public Color ColOutline;
     }
 
     public class TeammateInfo
@@ -996,7 +997,8 @@ namespace RaftTrainer
             try
             {
                 if (!blueprintHasCopy) { statusMessage = "Сначала скопируйте план"; return; }
-                BlockCreator bc = UnityEngine.Object.FindObjectOfType<BlockCreator>();
+                if (cachedBlockCreator == null) cachedBlockCreator = UnityEngine.Object.FindObjectOfType<BlockCreator>();
+                BlockCreator bc = cachedBlockCreator;
                 if (bc == null) { statusMessage = "BlockCreator не найден"; return; }
                 Item_Base item = ItemManager.GetItemByName("Foundation");
                 if (item == null) { statusMessage = "Предмет Foundation не найден"; return; }
@@ -1716,7 +1718,6 @@ namespace RaftTrainer
         {
             try
             {
-                if (Vector3.Dot(cam.transform.forward, (worldPos - cam.transform.position)) <= 0.1f) return false;
                 Vector3 sp = cam.WorldToScreenPoint(worldPos + Vector3.up * 0.5f);
                 if (sp.z <= 0.5f) return false;
                 Vector3 to = new Vector3(sp.x, Screen.height - sp.y, 0f);
@@ -1795,7 +1796,9 @@ namespace RaftTrainer
                 if (Vector3.Dot(camFwd, (tp.Pos - camPos)) <= 0.1f) continue;
                 Vector3 sp = cam.WorldToScreenPoint(tp.Pos);
                 if (sp.z <= 0.3f) continue;
-                GUI.color = new Color(1f, 0.3f, 0.4f, alpha * 0.65f);
+                Color tc = TrailBaseCol;
+                tc.a = alpha * 0.65f;
+                GUI.color = tc;
                 GUI.DrawTexture(new Rect(sp.x - 1.5f, Screen.height - sp.y - 1.5f, 3f, 3f), texWhiteDot);
             }
             GUI.color = prev;
@@ -1815,16 +1818,22 @@ namespace RaftTrainer
                 Network_Player player = ComponentManager<Network_Player>.Value;
                 if (player != null) pp = player.transform.position;
 
-                var plants = UnityEngine.Object.FindObjectsOfType<Plant>();
-                for (int i = 0; i < plants.Length && cropTags.Count < 40; i++)
+                if (cachedPlants == null || Time.time > nextPlantsScanTime)
                 {
-                    Plant pl = plants[i];
+                    nextPlantsScanTime = Time.time + 3.0f;
+                    cachedPlants = UnityEngine.Object.FindObjectsOfType<Plant>();
+                }
+                if (cachedPlants == null) return;
+
+                for (int i = 0; i < cachedPlants.Length && cropTags.Count < 40; i++)
+                {
+                    Plant pl = cachedPlants[i];
                     if (pl == null || pl.transform == null) continue;
                     bool grown = false;
                     try { grown = pl.FullyGrown(); } catch {}
                     string label;
                     Color col;
-                    if (grown) { label = "🌱 УРОЖАЙ ГОТОВ"; col = new Color(0.3f, 1f, 0.5f); }
+                    if (grown) { label = "🌱 УРОЖАЙ ГОТОВ"; col = CropReadyCol; }
                     else
                     {
                         float cur = 0f, total = 0f;
@@ -1832,7 +1841,7 @@ namespace RaftTrainer
                         try { total = pl.growTime; } catch {}
                         float pct = total > 0.5f ? Mathf.Clamp01(cur / total) : 0f;
                         label = "🌱 Урожай " + Mathf.RoundToInt(pct * 100f) + "%";
-                        col = Color.Lerp(new Color(1f, 0.6f, 0.2f), new Color(0.3f, 1f, 0.5f), pct);
+                        col = Color.Lerp(CropStartCol, CropReadyCol, pct);
                     }
                     EspTag tag;
                     if (cropTags.Count < cropTagsPool.Count)
@@ -1948,11 +1957,9 @@ namespace RaftTrainer
                         if (a == null) continue;
                         try
                         {
-                            if (a.AtBottom)
+                            if (a.AtBottom && mWeighAnchor != null)
                             {
-                                MethodInfo mi = typeof(Anchor_Stationary).GetMethod("WeighAnchor",
-                                    BindingFlags.NonPublic | BindingFlags.Instance);
-                                if (mi != null) mi.Invoke(a, null);
+                                mWeighAnchor.Invoke(a, null);
                             }
                         }
                         catch {}
@@ -2221,7 +2228,8 @@ namespace RaftTrainer
         {
             try
             {
-                RaftBounds bounds = UnityEngine.Object.FindObjectOfType<RaftBounds>();
+                if (cachedRaftBounds == null) cachedRaftBounds = UnityEngine.Object.FindObjectOfType<RaftBounds>();
+                RaftBounds bounds = cachedRaftBounds;
                 if (bounds == null) return "";
                 float bSize = BlockCreator.BlockSize > 0.5f ? BlockCreator.BlockSize : 1.5f;
                 int cellsX = Mathf.Max(1, Mathf.RoundToInt(bounds.HalfWidth / bSize));
@@ -2469,6 +2477,23 @@ namespace RaftTrainer
         private static FieldInfo fHungerTimer = typeof(AI_NetworkBehaviour_Domestic).GetField("_hungerTimer",
             BindingFlags.NonPublic | BindingFlags.Instance);
         private float nextPetsTime = 0f;
+
+        private static readonly Color ThermalSharkBg = new Color(1f, 0.2f, 0.3f, 0.22f);
+        private static readonly Color ThermalSharkOutline = new Color(1f, 0.2f, 0.3f, 0.85f);
+        private static readonly Color ThermalPredatorBg = new Color(1f, 0.55f, 0.1f, 0.22f);
+        private static readonly Color ThermalPredatorOutline = new Color(1f, 0.55f, 0.1f, 0.85f);
+
+        private static readonly Color ColStatBarBg = new Color(0f, 0f, 0f, 0.45f);
+        private static readonly Color ColStatBarText = new Color(1f, 1f, 1f, 0.8f);
+        private static readonly Color ColTeammateDead = new Color(1f, 0.35f, 0.35f);
+        private static readonly Color ColTeammateHpLow = new Color(1f, 0.25f, 0.3f);
+        private static readonly Color ColTeammateHpHigh = new Color(0.3f, 1f, 0.5f);
+        private static readonly Color ColTeammateHunger = new Color(1f, 0.75f, 0.2f);
+        private static readonly Color ColTeammateThirst = new Color(0.3f, 0.7f, 1f);
+
+        private static readonly Color CropReadyCol = new Color(0.3f, 1f, 0.5f);
+        private static readonly Color CropStartCol = new Color(1f, 0.6f, 0.2f);
+        private static readonly Color TrailBaseCol = new Color(1f, 0.3f, 0.4f, 1f);
 
         // Посадка
         private float nextPlantTime = 0f;
@@ -2871,8 +2896,9 @@ namespace RaftTrainer
                 }
                 if (seed == null) return;
 
-                PlantManager pm = UnityEngine.Object.FindObjectOfType<PlantManager>();
-                if (pm == null) return;
+                if (cachedPlantManager == null) cachedPlantManager = UnityEngine.Object.FindObjectOfType<PlantManager>();
+                if (cachedPlantManager == null) return;
+                PlantManager pm = cachedPlantManager;
 
                 int planted = 0;
                 var plots = PlantManager.allCropplots;
@@ -2966,10 +2992,8 @@ namespace RaftTrainer
                 }
 
                 // Авто-подсечение (как v11)
-                var rod = UnityEngine.Object.FindObjectOfType<FishingRod>();
+                var rod = player.GetComponentInChildren<FishingRod>() ?? UnityEngine.Object.FindObjectOfType<FishingRod>();
                 if (rod == null) return;
-                if (mPullItems == null)
-                    mPullItems = typeof(FishingRod).GetMethod("PullItemsFromSea", BindingFlags.NonPublic | BindingFlags.Instance);
                 if (mPullItems != null)
                 {
                     mPullItems.Invoke(rod, null);
@@ -3124,7 +3148,9 @@ namespace RaftTrainer
                         thermalTargetPool.Add(t);
                     }
                     t.T = ent.transform;
-                    t.Col = (n.Contains("shark") || n.Contains("boss")) ? new Color(1f, 0.2f, 0.3f) : new Color(1f, 0.55f, 0.1f);
+                    bool isShark = ContainsIgnoreCase(n, "shark") || ContainsIgnoreCase(n, "boss");
+                    t.ColBg = isShark ? ThermalSharkBg : ThermalPredatorBg;
+                    t.ColOutline = isShark ? ThermalSharkOutline : ThermalPredatorOutline;
                     thermalTargets.Add(t);
                 }
             }
@@ -3147,9 +3173,9 @@ namespace RaftTrainer
 
                 float size = Mathf.Clamp(1600f / sp.z, 24f, 320f);
                 Rect r = new Rect(sp.x - size * 0.5f, Screen.height - sp.y - size * 0.5f, size, size);
-                GUI.color = new Color(t.Col.r, t.Col.g, t.Col.b, 0.22f);
+                GUI.color = t.ColBg;
                 GUI.DrawTexture(r, texWhiteDot);
-                GUI.color = new Color(t.Col.r, t.Col.g, t.Col.b, 0.85f);
+                GUI.color = t.ColOutline;
                 DrawOutlineRect(r, 2f);
             }
             GUI.color = prev;
@@ -3199,16 +3225,21 @@ namespace RaftTrainer
             nextPetsTime = Time.time + 2f;
             try
             {
-                if (fHungerTimer == null)
-                    fHungerTimer = typeof(AI_NetworkBehaviour_Domestic).GetField("_hungerTimer", BindingFlags.NonPublic | BindingFlags.Instance);
                 if (fHungerTimer == null) return;
 
-                var animals = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Domestic>();
-                for (int i = 0; i < animals.Length; i++)
+                if (cachedDomesticAnimals == null || Time.time > nextDomesticAnimalsScanTime)
                 {
-                    AI_NetworkBehaviour_Domestic a = animals[i];
-                    if (a == null) continue;
-                    try { fHungerTimer.SetValue(a, 0f); } catch {}
+                    nextDomesticAnimalsScanTime = Time.time + 3.0f;
+                    cachedDomesticAnimals = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehaviour_Domestic>();
+                }
+                if (cachedDomesticAnimals != null)
+                {
+                    for (int i = 0; i < cachedDomesticAnimals.Length; i++)
+                    {
+                        AI_NetworkBehaviour_Domestic a = cachedDomesticAnimals[i];
+                        if (a == null) continue;
+                        try { fHungerTimer.SetValue(a, 0f); } catch {}
+                    }
                 }
             }
             catch {}
@@ -3246,8 +3277,9 @@ namespace RaftTrainer
             {
                 if (!floorHasCopy) { statusMessage = "Сначала скопируйте этаж"; return; }
                 Raft raft = ComponentManager<Raft>.Value;
-                BlockCreator bc = UnityEngine.Object.FindObjectOfType<BlockCreator>();
-                if (raft == null || bc == null) { statusMessage = "Плот/BlockCreator не найден"; return; }
+                if (cachedBlockCreator == null) cachedBlockCreator = UnityEngine.Object.FindObjectOfType<BlockCreator>();
+                if (raft == null || cachedBlockCreator == null) { statusMessage = "Плот/BlockCreator не найден"; return; }
+                BlockCreator bc = cachedBlockCreator;
 
                 float bSize = BlockCreator.BlockSize > 0.5f ? BlockCreator.BlockSize : 1.5f;
                 HashSet<string> used = new HashSet<string>();
@@ -3407,11 +3439,16 @@ namespace RaftTrainer
                     if (i < teammates.Count) ti = teammates[i];
 
                     Color prev = GUI.color;
-                    if (ti != null && ti.Dead) GUI.color = new Color(1f, 0.35f, 0.35f);
+                    if (ti != null && ti.Dead) GUI.color = ColTeammateDead;
                     GUI.Label(new Rect(panel.x + 8f, ry, panel.width - 16f, 13f), (ti != null && ti.Dead ? "☠ " : "") + nm, hudTextStyle);
                     GUI.color = prev;
 
-                    string info = me != null ? Vector3.Distance(me.transform.position, p.transform.position).ToString("F0") + " м" : "? м";
+                    string info = "? м";
+                    if (me != null)
+                    {
+                        int d = (int)Vector3.Distance(me.transform.position, p.transform.position);
+                        info = (d >= 0 && d <= 3000) ? DistStrings[d] : (d + " м");
+                    }
                     if (ti != null && !string.IsNullOrEmpty(ti.Status)) info += " • " + ti.Status + (ti.Fighting ? " ⚠" : "");
                     GUI.Label(new Rect(panel.x + 8f, ry + 13f, panel.width - 16f, 12f), info, subLabelStyle);
 
@@ -3422,9 +3459,9 @@ namespace RaftTrainer
                         float hu = ti != null ? ti.Hunger : -1f;
                         float th = ti != null ? ti.Thirst : -1f;
                         DrawTeammateStatBar(panel.x + 8f, ry + 26f, bw, hp,
-                            Color.Lerp(new Color(1f, 0.25f, 0.3f), new Color(0.3f, 1f, 0.5f), Mathf.Clamp01(hp)), "HP");
-                        DrawTeammateStatBar(panel.x + 8f + bw + 6f, ry + 26f, bw, hu, new Color(1f, 0.75f, 0.2f), "🍗");
-                        DrawTeammateStatBar(panel.x + 8f + (bw + 6f) * 2f, ry + 26f, bw, th, new Color(0.3f, 0.7f, 1f), "💧");
+                            Color.Lerp(ColTeammateHpLow, ColTeammateHpHigh, Mathf.Clamp01(hp)), "HP");
+                        DrawTeammateStatBar(panel.x + 8f + bw + 6f, ry + 26f, bw, hu, ColTeammateHunger, "🍗");
+                        DrawTeammateStatBar(panel.x + 8f + (bw + 6f) * 2f, ry + 26f, bw, th, ColTeammateThirst, "💧");
                     }
                 }
             }
@@ -3433,14 +3470,14 @@ namespace RaftTrainer
 
         private void DrawTeammateStatBar(float x, float y, float w, float norm, Color col, string label)
         {
-            GUI.color = new Color(0f, 0f, 0f, 0.45f);
+            GUI.color = ColStatBarBg;
             GUI.DrawTexture(new Rect(x, y, w, 7f), texWhiteDot);
             if (norm >= 0f)
             {
                 GUI.color = col;
                 GUI.DrawTexture(new Rect(x, y, w * Mathf.Clamp01(norm), 7f), texWhiteDot);
             }
-            GUI.color = new Color(1f, 1f, 1f, 0.8f);
+            GUI.color = ColStatBarText;
             GUI.Label(new Rect(x, y + 7f, w + 14f, 12f), norm >= 0f ? label + " " + Mathf.RoundToInt(norm * 100f) + "%" : label + " —", subLabelStyle);
         }
 
