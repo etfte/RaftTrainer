@@ -10,6 +10,11 @@ namespace RaftTrainer
     // ==========================================
     public partial class TrainerGUI : MonoBehaviour
     {
+        private string cachedCompassStr = "";
+        private float nextCompassUpdateTime = 0f;
+        private static readonly Color FpsHighColor = new Color(0.3f, 1f, 0.55f);
+        private static readonly Color FpsMidColor = new Color(1f, 0.75f, 0.2f);
+        private static readonly Color FpsLowColor = new Color(1f, 0.3f, 0.35f);
         private string cachedWeatherTxt = "";
         private float nextWeatherTxtTime = 0f;
         // ТАБЫ
@@ -1797,41 +1802,46 @@ namespace RaftTrainer
             if (!hudCompass) return;
             try
             {
-                float heading = cam.transform.eulerAngles.y;
-                string text = "🧭 " + CardinalName(heading) + " (" + Mathf.RoundToInt(heading) + "°)";
-
-                Vector3 targetPos;
-                string label;
-                if (GetCompassTarget(out targetPos, out label))
+                if (Time.time > nextCompassUpdateTime || string.IsNullOrEmpty(cachedCompassStr))
                 {
-                    Vector3 fwd = cam.transform.forward;
-                    fwd.y = 0f;
-                    if (fwd.sqrMagnitude > 0.01f)
-                    {
-                        fwd.Normalize();
-                        Vector3 to = targetPos - cam.transform.position;
-                        to.y = 0f;
-                        float dist = to.magnitude;
-                        if (to.sqrMagnitude > 0.01f)
-                        {
-                            float ang = Vector3.SignedAngle(fwd, to.normalized, Vector3.up);
-                            string arrow = ang < -15f ? "←" : (ang > 15f ? "→" : "▲");
-                            text += "   " + arrow + " " + label + " " + dist.ToString("F0") + "м";
+                    nextCompassUpdateTime = Time.time + 0.08f;
+                    float heading = cam.transform.eulerAngles.y;
+                    string text = "🧭 " + CardinalName(heading) + " (" + Mathf.RoundToInt(heading) + "°)";
 
-                            if (autopilotEnabled && cachedRaft != null)
+                    Vector3 targetPos;
+                    string label;
+                    if (GetCompassTarget(out targetPos, out label))
+                    {
+                        Vector3 fwd = cam.transform.forward;
+                        fwd.y = 0f;
+                        if (fwd.sqrMagnitude > 0.01f)
+                        {
+                            fwd.Normalize();
+                            Vector3 to = targetPos - cam.transform.position;
+                            to.y = 0f;
+                            float dist = to.magnitude;
+                            if (to.sqrMagnitude > 0.01f)
                             {
-                                Rigidbody rb = cachedRaftRb;
-                                if (rb != null)
+                                float ang = Vector3.SignedAngle(fwd, to.normalized, Vector3.up);
+                                string arrow = ang < -15f ? "←" : (ang > 15f ? "→" : "▲");
+                                text += "   " + arrow + " " + label + " " + dist.ToString("F0") + "м";
+
+                                if (autopilotEnabled && cachedRaft != null)
                                 {
-                                    float spd = rb.velocity.magnitude;
-                                    if (spd > 0.5f) text += " • ETA " + FormatTimeSpan(dist / spd);
+                                    Rigidbody rb = cachedRaftRb;
+                                    if (rb != null)
+                                    {
+                                        float spd = rb.velocity.magnitude;
+                                        if (spd > 0.5f) text += " • ETA " + FormatTimeSpan(dist / spd);
+                                    }
                                 }
                             }
                         }
                     }
+                    cachedCompassStr = text;
                 }
 
-                GUI.Box(new Rect(Screen.width / 2f - 210f, 8f, 420f, 22f), text, espBoxStyle);
+                GUI.Box(new Rect(Screen.width / 2f - 210f, 8f, 420f, 22f), cachedCompassStr, espBoxStyle);
             }
             catch {}
         }
@@ -1931,9 +1941,9 @@ namespace RaftTrainer
 
             Color prev = GUI.color;
             Color c;
-            if (fpsCurrent > 55f) c = new Color(0.3f, 1f, 0.55f);
-            else if (fpsCurrent > 30f) c = new Color(1f, 0.75f, 0.2f);
-            else c = new Color(1f, 0.3f, 0.35f);
+            if (fpsCurrent > 55f) c = FpsHighColor;
+            else if (fpsCurrent > 30f) c = FpsMidColor;
+            else c = FpsLowColor;
             GUI.color = c;
             GUI.Label(new Rect(panel.x + 8f, panel.y + 20f, 90f, 16f), perfFpsStr, hudTextStyle);
             GUI.color = prev;

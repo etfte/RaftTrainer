@@ -24,7 +24,7 @@ namespace RaftTrainer
         private readonly List<SharkESPInfo> espNameSharks = new List<SharkESPInfo>();
         private readonly Dictionary<int, string> espNameCache = new Dictionary<int, string>();
         private readonly HashSet<Transform> sharkSeenTransforms = new HashSet<Transform>();
-        private Vector3 espSortOrigin = Vector3.zero;
+        private static Vector3 espSortOrigin = Vector3.zero;
         private float nextEspPlayersTime = 0f;
         private float nextEspEntitiesTime = 0f;
         private float nextEspSharkTime = 0f;
@@ -37,6 +37,10 @@ namespace RaftTrainer
         private static readonly string[] DistStrings = new string[3001];
         private static readonly GUIContent sharedContent = new GUIContent();
         private static readonly Comparison<EspTag> TagDistComparison = CompareTagsByDistance;
+        private static readonly Comparison<PickupItem> ItemDistComparison = CompareItemsByDistance;
+        private static readonly Color BlockDamagedColor = new Color(1f, 0.25f, 0.30f);
+        private static readonly Color BlockHealthyColor = new Color(0.20f, 1f, 0.60f);
+        private static readonly Color BlockSelectedColor = new Color(1f, 0.85f, 0.20f);
 
         static TrainerGUI()
         {
@@ -47,8 +51,10 @@ namespace RaftTrainer
             InitMapGeometry();
         }
 
-        private int CompareItemsByDistance(PickupItem a, PickupItem b)
+        private static int CompareItemsByDistance(PickupItem a, PickupItem b)
         {
+            if (a == null) return b == null ? 0 : 1;
+            if (b == null) return -1;
             float da = (a.transform.position - espSortOrigin).sqrMagnitude;
             float db = (b.transform.position - espSortOrigin).sqrMagnitude;
             return da.CompareTo(db);
@@ -229,7 +235,7 @@ namespace RaftTrainer
             }
 
             espSortOrigin = pp;
-            espPickupScratch.Sort(CompareItemsByDistance);
+            espPickupScratch.Sort(ItemDistComparison);
 
             for (int i = 0; i < espPickupScratch.Count; i++)
             {
@@ -453,11 +459,11 @@ namespace RaftTrainer
                 if (byHealth)
                 {
                     float hp = block.MaxHealth > 0 ? Mathf.Clamp01((float)block.Health / block.MaxHealth) : 1f;
-                    c = Color.Lerp(new Color(1f, 0.25f, 0.30f), new Color(0.20f, 1f, 0.60f), hp);
+                    c = Color.Lerp(BlockDamagedColor, BlockHealthyColor, hp);
                 }
                 else
                 {
-                    c = new Color(1f, 0.85f, 0.20f);
+                    c = BlockSelectedColor;
                 }
 
                 Rect r = new Rect(sp.x - size * 0.5f, Screen.height - sp.y - size * 0.5f, size, size);

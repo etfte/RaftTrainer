@@ -81,6 +81,16 @@ namespace RaftTrainer
         private readonly List<EspTag> cropTagsPool = new List<EspTag>();
         private readonly List<TeammateInfo> teammatePool = new List<TeammateInfo>();
         private readonly List<TrailPoint> trailPointPool = new List<TrailPoint>();
+        private static readonly Color TracerSharkCol = new Color(1f, 0.25f, 0.35f, 0.75f);
+        private static readonly Color TracerTreasureCol = new Color(1f, 0.85f, 0.15f, 0.7f);
+        private static readonly Color TracerPlayerCol = new Color(0.2f, 1f, 0.4f, 0.7f);
+        private static readonly Color TracerRaftCol = new Color(0.25f, 0.85f, 1f, 0.7f);
+        private static readonly Color MapIslandCol = new Color(0.25f, 0.95f, 0.4f);
+        private static readonly Color MapTreasureCol = new Color(1f, 0.85f, 0.15f);
+        private static readonly Color MapSharkCol = new Color(1f, 0.3f, 0.4f);
+        private static readonly Color MapPlayerCol = new Color(0.2f, 1f, 0.5f);
+        private static readonly Color MapRaftCol = new Color(0.25f, 0.85f, 1f);
+        private static readonly Color MapWaypointCol = new Color(0.9f, 0.4f, 1f);
         private string lastTrashKeywordsRaw = null;
         private readonly List<string> cachedTrashKeywords = new List<string>();
         private readonly List<string> autoTrashNames = new List<string>();
@@ -1650,7 +1660,7 @@ namespace RaftTrainer
                 entityCount = cachedEntities.Count + cachedPickups.Count + cachedPlayers.Count + cachedSharksInfo.Count;
                 try
                 {
-                    int now = UnityEngine.Object.FindObjectsOfType<Block>().Length;
+                    int now = cachedRaft != null ? cachedRaft.GetComponentsInChildren<Block>().Length : UnityEngine.Object.FindObjectsOfType<Block>().Length;
                     if (lastBlockCount >= 0 && now < lastBlockCount)
                         statBlocksLost += lastBlockCount - now;
                     lastBlockCount = now;
@@ -1666,29 +1676,39 @@ namespace RaftTrainer
         private void DrawTracerLines(Camera cam)
         {
             Vector3 from = new Vector3(Screen.width * 0.5f, Screen.height, 0f);
+            Vector3 camPos = cam.transform.position;
+            Vector3 camFwd = cam.transform.forward;
             int drawn = 0;
 
             for (int i = 0; i < cachedSharksInfo.Count && drawn < 26; i++)
             {
                 var info = cachedSharksInfo[i];
                 if (info == null || info.transform == null) continue;
-                if (DrawTracer(cam, from, info.transform.position, new Color(1f, 0.25f, 0.35f, 0.75f))) drawn++;
+                Vector3 wpos = info.transform.position;
+                if (Vector3.Dot(camFwd, (wpos - camPos)) <= 0.1f) continue;
+                if (DrawTracer(cam, from, wpos, TracerSharkCol)) drawn++;
             }
             for (int i = 0; i < cachedTreasures.Count && drawn < 34; i++)
             {
                 var tp = cachedTreasures[i];
                 if (tp == null) continue;
-                if (DrawTracer(cam, from, tp.transform.position, new Color(1f, 0.85f, 0.15f, 0.7f))) drawn++;
+                Vector3 wpos = tp.transform.position;
+                if (Vector3.Dot(camFwd, (wpos - camPos)) <= 0.1f) continue;
+                if (DrawTracer(cam, from, wpos, TracerTreasureCol)) drawn++;
             }
             for (int i = 0; i < cachedPlayers.Count && drawn < 40; i++)
             {
                 var p = cachedPlayers[i];
                 if (p == null) continue;
-                if (DrawTracer(cam, from, p.transform.position, new Color(0.2f, 1f, 0.4f, 0.7f))) drawn++;
+                Vector3 wpos = p.transform.position;
+                if (Vector3.Dot(camFwd, (wpos - camPos)) <= 0.1f) continue;
+                if (DrawTracer(cam, from, wpos, TracerPlayerCol)) drawn++;
             }
             if (cachedRaft != null && drawn < 44)
             {
-                DrawTracer(cam, from, cachedRaft.transform.position, new Color(0.25f, 0.85f, 1f, 0.7f));
+                Vector3 wpos = cachedRaft.transform.position;
+                if (Vector3.Dot(camFwd, (wpos - camPos)) > 0.1f)
+                    DrawTracer(cam, from, wpos, TracerRaftCol);
             }
         }
 
@@ -1746,15 +1766,16 @@ namespace RaftTrainer
                 sharkTrail.Add(tp);
             }
             float cutoff = Time.time - 30f;
-            while (sharkTrail.Count > 0 && sharkTrail[0].T < cutoff)
+            int removeCount = 0;
+            int trailCount = sharkTrail.Count;
+            while (removeCount < trailCount && (sharkTrail[removeCount].T < cutoff || trailCount - removeCount > 200))
             {
-                trailPointPool.Add(sharkTrail[0]);
-                sharkTrail.RemoveAt(0);
+                trailPointPool.Add(sharkTrail[removeCount]);
+                removeCount++;
             }
-            while (sharkTrail.Count > 200)
+            if (removeCount > 0)
             {
-                trailPointPool.Add(sharkTrail[0]);
-                sharkTrail.RemoveAt(0);
+                sharkTrail.RemoveRange(0, removeCount);
             }
         }
 
@@ -2188,6 +2209,8 @@ namespace RaftTrainer
                         if (craftableList.Count < 20) craftableList.Add(title);
                     }
                     else if (missingList.Count < 14) missingList.Add(title + "  →  нет: " + missText);
+
+                    if (craftableList.Count >= 20 && missingList.Count >= 14) break;
                 }
             }
             catch {}
@@ -2604,35 +2627,35 @@ namespace RaftTrainer
             {
                 Landmark lm = cachedLandmarks[i];
                 if (lm == null) continue;
-                DrawMapBlip(center, z, pp, lm.transform.position, new Color(0.25f, 0.95f, 0.4f), 6f, panel, "Остров");
+                DrawMapBlip(center, z, pp, lm.transform.position, MapIslandCol, 6f, panel, "Остров");
             }
             // Клады
             for (int i = 0; i < cachedTreasures.Count; i++)
             {
                 TreasurePoint tp = cachedTreasures[i];
                 if (tp == null) continue;
-                DrawMapBlip(center, z, pp, tp.transform.position, new Color(1f, 0.85f, 0.15f), 4f, panel, null);
+                DrawMapBlip(center, z, pp, tp.transform.position, MapTreasureCol, 4f, panel, null);
             }
             // Акулы
             for (int i = 0; i < cachedSharksInfo.Count; i++)
             {
                 SharkESPInfo info = cachedSharksInfo[i];
                 if (info == null || info.transform == null) continue;
-                DrawMapBlip(center, z, pp, info.transform.position, new Color(1f, 0.3f, 0.4f), 5f, panel, null);
+                DrawMapBlip(center, z, pp, info.transform.position, MapSharkCol, 5f, panel, null);
             }
             // Игроки
             for (int i = 0; i < v14Players.Count; i++)
             {
                 Network_Player p = v14Players[i];
                 if (p == null) continue;
-                DrawMapBlip(center, z, pp, p.transform.position, new Color(0.2f, 1f, 0.5f), 5f, panel, null);
+                DrawMapBlip(center, z, pp, p.transform.position, MapPlayerCol, 5f, panel, null);
             }
             // Плот
             if (cachedRaft != null)
-                DrawMapBlip(center, z, pp, cachedRaft.transform.position, new Color(0.25f, 0.85f, 1f), 8f, panel, "ПЛОТ");
+                DrawMapBlip(center, z, pp, cachedRaft.transform.position, MapRaftCol, 8f, panel, "ПЛОТ");
             // Точки
             for (int i = 0; i < waypoints.Count; i++)
-                DrawMapBlip(center, z, pp, waypoints[i].position, new Color(0.9f, 0.4f, 1f), 5f, panel, waypoints[i].name);
+                DrawMapBlip(center, z, pp, waypoints[i].position, MapWaypointCol, 5f, panel, waypoints[i].name);
             GUI.color = prev;
         }
 

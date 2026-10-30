@@ -258,6 +258,11 @@ namespace RaftTrainer
         public bool espTreasures = true;
         private readonly List<TreasurePoint> cachedTreasures = new List<TreasurePoint>();
         private float nextV10ThrottleTime = 0f;
+        private Electric_Purifier[] cachedPurifiers = null;
+        private Block_CookingStand_Purifier[] cachedStandPurifiers = null;
+        private float nextPurifierScanTime = 0f;
+        private Block[] cachedAllBlocks = null;
+        private float nextAllBlocksScanTime = 0f;
 
         // V11 AUTO / LOGISTICS / CAMERA / PAINT
         public bool autoAnchorOnArrival = false;
@@ -651,7 +656,7 @@ namespace RaftTrainer
             // Throttled V10 Periodic Scans (0.35s)
             if (Time.time > nextV10ThrottleTime)
             {
-                nextV10ThrottleTime = Time.time + 0.35f;
+                nextV10ThrottleTime = Time.time + 1.8f;
                 if (infiniteBait) ApplyInfiniteBait();
                 if (infinitePipeWater) ApplyInfinitePipePressure();
                 if (indestructibleRaft) ApplyIndestructibleRaft();
@@ -1226,24 +1231,35 @@ namespace RaftTrainer
         {
             try
             {
-                var purifiers = UnityEngine.Object.FindObjectsOfType<Electric_Purifier>();
-                for (int i = 0; i < purifiers.Length; i++)
+                if (cachedPurifiers == null || Time.time > nextPurifierScanTime)
                 {
-                    var purifier = purifiers[i];
-                    if (purifier != null && purifier.tank != null) purifier.tank.SetTankAmount(purifier.tank.maxCapacity);
+                    nextPurifierScanTime = Time.time + 3.0f;
+                    cachedPurifiers = UnityEngine.Object.FindObjectsOfType<Electric_Purifier>();
+                    cachedStandPurifiers = UnityEngine.Object.FindObjectsOfType<Block_CookingStand_Purifier>();
                 }
 
-                var stands = UnityEngine.Object.FindObjectsOfType<Block_CookingStand_Purifier>();
-                for (int i = 0; i < stands.Length; i++)
+                if (cachedPurifiers != null)
                 {
-                    var stand = stands[i];
-                    if (stand == null || stand.cookingSlots == null) continue;
-                    for (int k = 0; k < stand.cookingSlots.Length; k++)
+                    for (int i = 0; i < cachedPurifiers.Length; i++)
                     {
-                        var slot = stand.cookingSlots[k];
-                        if (slot == null) continue;
-                        if (slot.IsBusy && !slot.IsComplete) slot.ForceSetTimer(9999f);
-                        if (slot.IsComplete && player != null) stand.CollectItem(slot, player);
+                        var purifier = cachedPurifiers[i];
+                        if (purifier != null && purifier.tank != null) purifier.tank.SetTankAmount(purifier.tank.maxCapacity);
+                    }
+                }
+
+                if (cachedStandPurifiers != null)
+                {
+                    for (int i = 0; i < cachedStandPurifiers.Length; i++)
+                    {
+                        var stand = cachedStandPurifiers[i];
+                        if (stand == null || stand.cookingSlots == null) continue;
+                        for (int k = 0; k < stand.cookingSlots.Length; k++)
+                        {
+                            var slot = stand.cookingSlots[k];
+                            if (slot == null) continue;
+                            if (slot.IsBusy && !slot.IsComplete) slot.ForceSetTimer(9999f);
+                            if (slot.IsComplete && player != null) stand.CollectItem(slot, player);
+                        }
                     }
                 }
             }
@@ -1303,10 +1319,18 @@ namespace RaftTrainer
             wireBlocks.Clear();
             if (player == null || player.Camera == null) return;
             Vector3 cp = player.Camera.transform.position;
-            var blocks = UnityEngine.Object.FindObjectsOfType<Block>();
-            for (int i = 0; i < blocks.Length && wireBlocks.Count < 300; i++)
+
+            if (cachedAllBlocks == null || Time.time > nextAllBlocksScanTime)
             {
-                var b = blocks[i];
+                nextAllBlocksScanTime = Time.time + 2.5f;
+                if (cachedRaft != null) cachedAllBlocks = cachedRaft.GetComponentsInChildren<Block>();
+                else cachedAllBlocks = UnityEngine.Object.FindObjectsOfType<Block>();
+            }
+
+            if (cachedAllBlocks == null) return;
+            for (int i = 0; i < cachedAllBlocks.Length && wireBlocks.Count < 300; i++)
+            {
+                var b = cachedAllBlocks[i];
                 if (b != null && (b.transform.position - cp).sqrMagnitude <= 3025f) wireBlocks.Add(b);
             }
         }
@@ -1432,17 +1456,17 @@ namespace RaftTrainer
                 Vector3 pp = player.transform.position;
                 Storage_Small target = null;
                 float bestScore = float.MaxValue;
-                var chests = UnityEngine.Object.FindObjectsOfType<Storage_Small>();
+                Storage_Small[] chests = (cachedChests != null && cachedChests.Length > 0) ? cachedChests : UnityEngine.Object.FindObjectsOfType<Storage_Small>();
                 for (int i = 0; i < chests.Length; i++)
                 {
                     var c = chests[i];
                     if (c == null) continue;
-                    float d = Vector3.Distance(c.transform.position, pp);
-                    if (c.IsOpen) d -= 1000f;
-                    else if (d > 6f) continue;
-                    if (d < bestScore)
+                    float dSqr = (c.transform.position - pp).sqrMagnitude;
+                    if (c.IsOpen) dSqr = -1000f;
+                    else if (dSqr > 36f) continue;
+                    if (dSqr < bestScore)
                     {
-                        bestScore = d;
+                        bestScore = dSqr;
                         target = c;
                     }
                 }
@@ -2688,6 +2712,7 @@ namespace RaftTrainer
                     Vector3 target = s.transform.position + Vector3.up * 0.4f;
                     Vector3 dir = target - camPos;
                     if (dir.sqrMagnitude > maxRangeSqr) continue;
+                    if (Vector3.Dot(camFwd, dir) <= 0f) continue;
                     float angle = Vector3.Angle(camFwd, dir);
                     if (angle < closestAngle)
                     {
@@ -2708,6 +2733,7 @@ namespace RaftTrainer
                         Vector3 entPos = ent.transform.position + Vector3.up * 0.6f;
                         Vector3 dir = entPos - camPos;
                         if (dir.sqrMagnitude > maxRangeSqr) continue;
+                        if (Vector3.Dot(camFwd, dir) <= 0f) continue;
 
                         if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
                         if (ent.GetComponent<Network_Player>() != null) continue;
@@ -2735,6 +2761,7 @@ namespace RaftTrainer
                     Vector3 itemPos = item.transform.position + Vector3.up * 0.2f;
                     Vector3 dir = itemPos - camPos;
                     if (dir.sqrMagnitude > maxRangeSqr) continue;
+                    if (Vector3.Dot(camFwd, dir) <= 0f) continue;
 
                     float angle = Vector3.Angle(camFwd, dir);
                     if (angle < closestAngle)
@@ -2858,11 +2885,12 @@ namespace RaftTrainer
                 {
                     var p = cachedPickups[i];
                     if (p == null) continue;
-                    Vector3 diff = p.transform.position - target;
+                    Vector3 curPos = p.transform.position;
+                    Vector3 diff = curPos - target;
                     float distSqr = diff.sqrMagnitude;
                     if (distSqr < rSqr && distSqr > 1.44f && IsMagnetAllowed(p))
                     {
-                        p.transform.position = Vector3.MoveTowards(p.transform.position, target, 28f * Time.deltaTime);
+                        p.transform.position = Vector3.MoveTowards(curPos, target, 28f * Time.deltaTime);
                     }
                 }
             }
@@ -3544,7 +3572,16 @@ namespace RaftTrainer
         {
             try
             {
-                var blocks = UnityEngine.Object.FindObjectsOfType<Block>();
+                Block[] blocks = cachedAllBlocks;
+                if (blocks == null || Time.time > nextAllBlocksScanTime)
+                {
+                    nextAllBlocksScanTime = Time.time + 2.5f;
+                    if (cachedRaft != null) cachedAllBlocks = cachedRaft.GetComponentsInChildren<Block>();
+                    else cachedAllBlocks = UnityEngine.Object.FindObjectsOfType<Block>();
+                    blocks = cachedAllBlocks;
+                }
+                if (blocks == null) return;
+
                 for (int i = 0; i < blocks.Length; i++)
                 {
                     var b = blocks[i];
@@ -3672,12 +3709,23 @@ namespace RaftTrainer
                     if (fDetectorSearchRadius != null) fDetectorSearchRadius.SetValue(md, 9999f);
                 }
 
-                var treasures = UnityEngine.Object.FindObjectsOfType<TreasurePoint>();
-                for (int i = 0; i < treasures.Length; i++)
+                int tCount = cachedTreasures.Count;
+                if (tCount > 0)
                 {
-                    var tp = treasures[i];
-                    if (tp == null) continue;
-                    tp.isRevealedViaDetector = true;
+                    for (int i = 0; i < tCount; i++)
+                    {
+                        var tp = cachedTreasures[i];
+                        if (tp != null) tp.isRevealedViaDetector = true;
+                    }
+                }
+                else
+                {
+                    var treasures = UnityEngine.Object.FindObjectsOfType<TreasurePoint>();
+                    for (int i = 0; i < treasures.Length; i++)
+                    {
+                        var tp = treasures[i];
+                        if (tp != null) tp.isRevealedViaDetector = true;
+                    }
                 }
             }
             catch {}
