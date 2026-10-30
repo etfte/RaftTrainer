@@ -138,7 +138,7 @@ namespace RaftTrainer
         private void RefreshSharkCache(float now)
         {
             cachedSharksInfo.Clear();
-            if (!espShark) return;
+            cachedSharks.Clear();
 
             var seen = sharkSeenTransforms;
             seen.Clear();
@@ -146,7 +146,9 @@ namespace RaftTrainer
             for (int i = 0; i < sharks.Length; i++)
             {
                 var s = sharks[i];
-                if (s == null || s.state == SharkState.Dead || s.state == SharkState.DeadSink) continue;
+                if (s == null) continue;
+                cachedSharks.Add(s);
+                if (!espShark || s.state == SharkState.Dead || s.state == SharkState.DeadSink) continue;
                 float cur = 100f;
                 float max = 100f;
                 if (s.entityComponent != null && s.entityComponent.stat_health != null)
@@ -159,39 +161,41 @@ namespace RaftTrainer
                 seen.Add(s.transform);
             }
 
-            var aiSharks = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehavior_Shark>();
-            for (int i = 0; i < aiSharks.Length; i++)
+            if (espShark)
             {
-                var a = aiSharks[i];
-                if (a == null || seen.Contains(a.transform)) continue;
-                float cur = 100f;
-                float max = 100f;
-                if (a.networkEntity != null && a.networkEntity.stat_health != null)
+                var aiSharks = UnityEngine.Object.FindObjectsOfType<AI_NetworkBehavior_Shark>();
+                for (int i = 0; i < aiSharks.Length; i++)
                 {
-                    if (a.networkEntity.stat_health.IsDead()) continue;
-                    cur = a.networkEntity.stat_health.Value;
-                    max = a.networkEntity.stat_health.Max;
+                    var a = aiSharks[i];
+                    if (a == null || seen.Contains(a.transform)) continue;
+                    float cur = 100f;
+                    float max = 100f;
+                    if (a.networkEntity != null && a.networkEntity.stat_health != null)
+                    {
+                        if (a.networkEntity.stat_health.IsDead()) continue;
+                        cur = a.networkEntity.stat_health.Value;
+                        max = a.networkEntity.stat_health.Max;
+                    }
+                    cachedSharksInfo.Add(new SharkESPInfo { transform = a.transform, name = "Акула", health = cur, maxHealth = max });
+                    seen.Add(a.transform);
                 }
-                cachedSharksInfo.Add(new SharkESPInfo { transform = a.transform, name = "Акула", health = cur, maxHealth = max });
-                seen.Add(a.transform);
-            }
 
-            if (now >= nextEspNameSharkTime)
-            {
-                nextEspNameSharkTime = now + 3f;
-                espNameSharks.Clear();
-                var entities = UnityEngine.Object.FindObjectsOfType<Network_Entity>();
-                for (int i = 0; i < entities.Length; i++)
+                if (now >= nextEspNameSharkTime)
                 {
-                    var ent = entities[i];
-                    if (ent == null) continue;
-                    string n = ent.name.ToLower();
-                    if (!n.Contains("shark")) continue;
-                    if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
-                    float cur = ent.stat_health != null ? ent.stat_health.Value : 100f;
-                    float max = ent.stat_health != null ? ent.stat_health.Max : 100f;
-                    string sName = (n.Contains("varuna") || n.Contains("boss")) ? "Босс-акула" : "Акула";
-                    espNameSharks.Add(new SharkESPInfo { transform = ent.transform, name = sName, health = cur, maxHealth = max });
+                    nextEspNameSharkTime = now + 3f;
+                    espNameSharks.Clear();
+                    for (int i = 0; i < cachedEntities.Count; i++)
+                    {
+                        var ent = cachedEntities[i];
+                        if (ent == null) continue;
+                        string n = ent.name.ToLower();
+                        if (!n.Contains("shark")) continue;
+                        if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
+                        float cur = ent.stat_health != null ? ent.stat_health.Value : 100f;
+                        float max = ent.stat_health != null ? ent.stat_health.Max : 100f;
+                        string sName = (n.Contains("varuna") || n.Contains("boss")) ? "Босс-акула" : "Акула";
+                        espNameSharks.Add(new SharkESPInfo { transform = ent.transform, name = sName, health = cur, maxHealth = max });
+                    }
                 }
             }
             for (int i = 0; i < espNameSharks.Count; i++)

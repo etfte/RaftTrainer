@@ -368,8 +368,8 @@ namespace RaftTrainer
                         autopilotLandmarks.Clear();
                         try
                         {
-                            var lms = UnityEngine.Object.FindObjectsOfType<Landmark>();
-                            for (int i = 0; i < lms.Length; i++) if (lms[i] != null) autopilotLandmarks.Add(lms[i]);
+                            for (int i = 0; i < cachedLandmarks.Count; i++)
+                                if (cachedLandmarks[i] != null) autopilotLandmarks.Add(cachedLandmarks[i]);
                         }
                         catch {}
                     }
@@ -439,6 +439,7 @@ namespace RaftTrainer
         {
             try
             {
+                if (!Input.anyKeyDown && bindCaptureAction == null) return;
                 EnsureKeybinds();
 
                 if (bindCaptureAction != null)
@@ -653,17 +654,20 @@ namespace RaftTrainer
             nextAlarmCheckTime = Time.time + 0.5f;
 
             Vector3 pp = player.transform.position;
-            float best = float.MaxValue;
-            for (int i = 0; i < cachedSharksInfo.Count; i++)
+            float bestSqr = float.MaxValue;
+            int count = cachedSharksInfo.Count;
+            for (int i = 0; i < count; i++)
             {
                 SharkESPInfo info = cachedSharksInfo[i];
                 if (info == null || info.transform == null) continue;
-                float d = Vector3.Distance(info.transform.position, pp);
-                if (d < best) best = d;
+                float dSqr = (info.transform.position - pp).sqrMagnitude;
+                if (dSqr < bestSqr) bestSqr = dSqr;
             }
 
-            if (best <= sharkAlarmRadius)
+            float rSqr = sharkAlarmRadius * sharkAlarmRadius;
+            if (bestSqr <= rSqr)
             {
+                float best = Mathf.Sqrt(bestSqr);
                 bool wasSilent = Time.time > sharkAlarmUntil;
                 sharkAlarmUntil = Time.time + 2.5f;
                 if (wasSilent)
@@ -1319,46 +1323,79 @@ namespace RaftTrainer
             catch (Exception ex) { statusMessage = "Ошибка импорта: " + ex.Message; }
         }
 
+                private readonly List<MinimapBlip> minimapBlipPool = new List<MinimapBlip>();
+        private int minimapBlipsCount = 0;
+
+        private void AddMinimapBlip(Vector3 pos, Color col, float size)
+        {
+            MinimapBlip blip;
+            if (minimapBlipsCount < minimapBlipPool.Count)
+            {
+                blip = minimapBlipPool[minimapBlipsCount];
+            }
+            else
+            {
+                blip = new MinimapBlip();
+                minimapBlipPool.Add(blip);
+            }
+            minimapBlipsCount++;
+            blip.Position = pos;
+            blip.Col = col;
+            blip.Size = size;
+        }
+
         // ---------- ДАННЫЕ HUD ----------
         private void RefreshMinimapBlips()
         {
+            if (!hudMinimap && !worldMapOn)
+            {
+                if (minimapBlips.Count > 0) minimapBlips.Clear();
+                return;
+            }
             try
             {
                 minimapBlips.Clear();
+                minimapBlipsCount = 0;
                 if (cachedRaft != null)
-                    minimapBlips.Add(new MinimapBlip { Position = cachedRaft.transform.position, Col = new Color(0.25f, 0.85f, 1f), Size = 7f });
+                    AddMinimapBlip(cachedRaft.transform.position, new Color(0.25f, 0.85f, 1f), 7f);
                 for (int i = 0; i < cachedSharksInfo.Count; i++)
                 {
                     var info = cachedSharksInfo[i];
                     if (info == null || info.transform == null) continue;
-                    minimapBlips.Add(new MinimapBlip { Position = info.transform.position, Col = new Color(1f, 0.25f, 0.35f), Size = 6f });
+                    AddMinimapBlip(info.transform.position, new Color(1f, 0.25f, 0.35f), 6f);
                 }
                 for (int i = 0; i < cachedPlayers.Count; i++)
                 {
                     var p = cachedPlayers[i];
                     if (p == null) continue;
-                    minimapBlips.Add(new MinimapBlip { Position = p.transform.position, Col = new Color(0.2f, 1f, 0.4f), Size = 5f });
+                    AddMinimapBlip(p.transform.position, new Color(0.2f, 1f, 0.4f), 5f);
                 }
                 for (int i = 0; i < cachedLandmarks.Count && i < 12; i++)
                 {
                     var lm = cachedLandmarks[i];
                     if (lm == null) continue;
-                    minimapBlips.Add(new MinimapBlip { Position = lm.transform.position, Col = new Color(0.2f, 0.9f, 0.35f), Size = 8f });
+                    AddMinimapBlip(lm.transform.position, new Color(0.2f, 0.9f, 0.35f), 8f);
                 }
                 for (int i = 0; i < cachedTreasures.Count; i++)
                 {
                     var tp = cachedTreasures[i];
                     if (tp == null) continue;
-                    minimapBlips.Add(new MinimapBlip { Position = tp.transform.position, Col = new Color(1f, 0.85f, 0.15f), Size = 5f });
+                    AddMinimapBlip(tp.transform.position, new Color(1f, 0.85f, 0.15f), 5f);
                 }
                 for (int i = 0; i < cachedPickups.Count && i < 20; i++)
                 {
                     var p = cachedPickups[i];
                     if (p == null) continue;
-                    minimapBlips.Add(new MinimapBlip { Position = p.transform.position, Col = new Color(0.8f, 0.85f, 0.95f, 0.8f), Size = 3f });
+                    AddMinimapBlip(p.transform.position, new Color(0.8f, 0.85f, 0.95f, 0.8f), 3f);
                 }
                 for (int i = 0; i < waypoints.Count; i++)
-                    minimapBlips.Add(new MinimapBlip { Position = waypoints[i].position, Col = new Color(0.9f, 0.4f, 1f), Size = 6f });
+                {
+                    AddMinimapBlip(waypoints[i].position, new Color(0.2f, 0.9f, 1f), 6f);
+                }
+                for (int i = 0; i < minimapBlipsCount; i++)
+                {
+                    minimapBlips.Add(minimapBlipPool[i]);
+                }
             }
             catch {}
         }
@@ -1494,7 +1531,6 @@ namespace RaftTrainer
         public int statDeaths = 0;
         public int statIslands = 0;
         public int statBlocksLost = 0;
-        private float nextLandmarkStatsTime = 0f;
 
         // Быстрая ночь
         private bool fastNightApplied = false;
@@ -1620,6 +1656,7 @@ namespace RaftTrainer
         {
             try
             {
+                if (Vector3.Dot(cam.transform.forward, (worldPos - cam.transform.position)) <= 0.1f) return false;
                 Vector3 sp = cam.WorldToScreenPoint(worldPos + Vector3.up * 0.5f);
                 if (sp.z <= 0.5f) return false;
                 Vector3 to = new Vector3(sp.x, Screen.height - sp.y, 0f);
@@ -1918,6 +1955,7 @@ namespace RaftTrainer
         // ---------- РАСШИРЕННАЯ СТАТИСТИКА ----------
         private void UpdateV13Stats()
         {
+            if (!hudSessionStats) return;
             Network_Player player = ComponentManager<Network_Player>.Value;
             try
             {
@@ -1931,11 +1969,11 @@ namespace RaftTrainer
                     else deathCounted = false;
                 }
 
-                // Убитые акулы
-                var sharks = UnityEngine.Object.FindObjectsOfType<Shark>();
-                for (int i = 0; i < sharks.Length; i++)
+                // Убитые акулы (используем cachedSharks без поиска по сцене)
+                int sCount = cachedSharks.Count;
+                for (int i = 0; i < sCount; i++)
                 {
-                    Shark s = sharks[i];
+                    Shark s = cachedSharks[i];
                     if (s == null) continue;
                     int id = s.GetInstanceID();
                     if (deadSharkIds.Contains(id)) continue;
@@ -1949,24 +1987,18 @@ namespace RaftTrainer
                     if (dead) { deadSharkIds.Add(id); statSharkKills++; LogEvent("🦈 Акула убита"); }
                 }
 
-                // Посещенные острова
-                if (Time.time > nextLandmarkStatsTime)
-                {
-                    nextLandmarkStatsTime = Time.time + 3f;
-                    statsLandmarks.Clear();
-                    var lms = UnityEngine.Object.FindObjectsOfType<Landmark>();
-                    for (int i = 0; i < lms.Length; i++) if (lms[i] != null) statsLandmarks.Add(lms[i]);
-                }
+                // Посещенные острова (переиспользуем cachedLandmarks)
                 if (player != null)
                 {
                     Vector3 pp = player.transform.position;
-                    for (int i = 0; i < statsLandmarks.Count; i++)
+                    int lmCount = cachedLandmarks.Count;
+                    for (int i = 0; i < lmCount; i++)
                     {
-                        Landmark lm = statsLandmarks[i];
+                        Landmark lm = cachedLandmarks[i];
                         if (lm == null) continue;
                         int id = lm.GetInstanceID();
                         if (visitedIslandIds.Contains(id)) continue;
-                        if (Vector3.Distance(lm.transform.position, pp) < 150f)
+                        if ((lm.transform.position - pp).sqrMagnitude < 22500f)
                         {
                             visitedIslandIds.Add(id);
                             statIslands++;
@@ -1981,6 +2013,7 @@ namespace RaftTrainer
         // ---------- БЫСТРАЯ НОЧЬ ----------
         private void UpdateFastNight()
         {
+            if (!fastNight && !fastNightApplied) return;
             if (fastNight && Time.time > nextSkyCacheTime)
             {
                 nextSkyCacheTime = Time.time + 5f;
@@ -2605,6 +2638,10 @@ namespace RaftTrainer
             catch {}
         }
 
+        private readonly Dictionary<string, int> resNowDict = new Dictionary<string, int>();
+        private readonly Dictionary<string, string> resNamesDict = new Dictionary<string, string>();
+        private readonly List<string> resGoneList = new List<string>();
+
         // ---------- ТАБЛИЦА ДОБЫЧИ РЕСУРСОВ ----------
         private void TrackResources(Network_Player player)
         {
@@ -2612,45 +2649,46 @@ namespace RaftTrainer
             {
                 if (player == null || player.Inventory == null || player.Inventory.allSlots == null) return;
 
-                Dictionary<string, int> now = new Dictionary<string, int>();
-                Dictionary<string, string> names = new Dictionary<string, string>();
-                for (int i = 0; i < player.Inventory.allSlots.Count; i++)
+                resNowDict.Clear();
+                resNamesDict.Clear();
+                int slotCount = player.Inventory.allSlots.Count;
+                for (int i = 0; i < slotCount; i++)
                 {
                     Slot s = player.Inventory.allSlots[i];
                     if (s == null || !s.HasValidItemInstance() || s.itemInstance == null || s.itemInstance.baseItem == null) continue;
                     string un = s.itemInstance.baseItem.UniqueName;
                     int amt = s.itemInstance.Amount;
-                    if (now.ContainsKey(un)) now[un] += amt;
-                    else now[un] = amt;
+                    if (resNowDict.ContainsKey(un)) resNowDict[un] += amt;
+                    else resNowDict[un] = amt;
 
-                    if (!names.ContainsKey(un))
+                    if (!resNamesDict.ContainsKey(un))
                     {
                         string dn = un;
                         try { if (s.itemInstance.baseItem.settings_Inventory != null && !string.IsNullOrEmpty(s.itemInstance.baseItem.settings_Inventory.DisplayName)) dn = s.itemInstance.baseItem.settings_Inventory.DisplayName; } catch {}
-                        names[un] = dn;
+                        resNamesDict[un] = dn;
                     }
                 }
 
                 if (!resTrackingInit) { resTrackingInit = true; lastResCounts.Clear(); }
 
-                foreach (KeyValuePair<string, int> pair in now)
+                foreach (KeyValuePair<string, int> pair in resNowDict)
                 {
                     int last;
                     lastResCounts.TryGetValue(pair.Key, out last);
                     int delta = pair.Value - last;
                     if (delta > 0)
                     {
-                        string label = names.ContainsKey(pair.Key) ? names[pair.Key] : pair.Key;
+                        string label = resNamesDict.ContainsKey(pair.Key) ? resNamesDict[pair.Key] : pair.Key;
                         if (resourceGains.ContainsKey(label)) resourceGains[label] += delta;
                         else resourceGains[label] = delta;
                     }
                     lastResCounts[pair.Key] = pair.Value;
                 }
-                // Убравшиеся из инвентаря предметы просто сбрасываются
-                List<string> gone = new List<string>();
+
+                resGoneList.Clear();
                 foreach (KeyValuePair<string, int> pair in lastResCounts)
-                    if (!now.ContainsKey(pair.Key)) gone.Add(pair.Key);
-                for (int i = 0; i < gone.Count; i++) lastResCounts.Remove(gone[i]);
+                    if (!resNowDict.ContainsKey(pair.Key)) resGoneList.Add(pair.Key);
+                for (int i = 0; i < resGoneList.Count; i++) lastResCounts.Remove(resGoneList[i]);
             }
             catch {}
         }
@@ -2979,10 +3017,13 @@ namespace RaftTrainer
         {
             if (thermalTargets.Count == 0) return;
             Color prev = GUI.color;
+            Vector3 camPos = cam.transform.position;
+            Vector3 camFwd = cam.transform.forward;
             for (int i = 0; i < thermalTargets.Count; i++)
             {
                 ThermalTarget t = thermalTargets[i];
                 if (t.T == null) continue;
+                if (Vector3.Dot(camFwd, (t.T.position - camPos)) <= 0.1f) continue;
                 Vector3 sp = cam.WorldToScreenPoint(t.T.position + Vector3.up * 0.6f);
                 if (sp.z <= 0.5f || sp.x < -80f || sp.x > Screen.width + 80f || sp.y < -80f || sp.y > Screen.height + 80f) continue;
 

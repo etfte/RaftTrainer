@@ -127,6 +127,7 @@ namespace RaftTrainer
         private float nextEspCacheTime = 0f;
         private readonly List<PickupItem> cachedPickups = new List<PickupItem>();
         private readonly List<SharkESPInfo> cachedSharksInfo = new List<SharkESPInfo>();
+        private readonly List<Shark> cachedSharks = new List<Shark>();
         private readonly List<Network_Player> cachedPlayers = new List<Network_Player>();
         private readonly List<Network_Entity> cachedEntities = new List<Network_Entity>();
         private Raft cachedRaft = null;
@@ -915,13 +916,14 @@ namespace RaftTrainer
         private void CollectPickupsWithin(Network_Player player, float radius)
         {
             if (player.PickupScript == null) return;
-            var pickups = UnityEngine.Object.FindObjectsOfType<PickupItem>();
             Vector3 pos = player.transform.position;
-            for (int i = 0; i < pickups.Length; i++)
+            float rSqr = radius * radius;
+            int count = cachedPickups.Count;
+            for (int i = 0; i < count; i++)
             {
-                var p = pickups[i];
+                var p = cachedPickups[i];
                 if (p == null || !p.gameObject.activeInHierarchy) continue;
-                if (Vector3.Distance(p.transform.position, pos) <= radius)
+                if ((p.transform.position - pos).sqrMagnitude <= rSqr)
                 {
                     player.PickupScript.PickupItem(p, true, false);
                 }
@@ -958,43 +960,37 @@ namespace RaftTrainer
         private float GetDistanceToShore(Raft raft)
         {
             Vector3 rp = raft.transform.position;
-            var landmarks = UnityEngine.Object.FindObjectsOfType<Landmark>();
             Landmark nearest = null;
-            float best = float.MaxValue;
-            for (int i = 0; i < landmarks.Length; i++)
+            float bestSqr = float.MaxValue;
+            int count = cachedLandmarks.Count;
+            for (int i = 0; i < count; i++)
             {
-                var lm = landmarks[i];
+                var lm = cachedLandmarks[i];
                 if (lm == null) continue;
-                float d = Vector3.Distance(rp, lm.transform.position);
-                if (d < best)
+                float dSqr = (rp - lm.transform.position).sqrMagnitude;
+                if (dSqr < bestSqr)
                 {
-                    best = d;
+                    bestSqr = dSqr;
                     nearest = lm;
                 }
             }
-            if (nearest == null || best > 180f) return -1f;
+            if (nearest == null || bestSqr > 32400f) return -1f;
 
             Vector3 dir = nearest.transform.position - rp;
             dir.y = 0f;
             if (dir.sqrMagnitude < 0.01f) return 0f;
             dir.Normalize();
 
-            var bounds = UnityEngine.Object.FindObjectOfType<RaftBounds>();
-            float halfSize = bounds != null ? Mathf.Max(bounds.HalfWidth, bounds.HalfLength) : 4f;
+            float halfSize = 6f;
             Vector3 origin = rp + Vector3.up * 1.5f + dir * halfSize;
 
-            RaycastHit[] hits = Physics.RaycastAll(origin, dir, 180f, ~0, QueryTriggerInteraction.Ignore);
-            float nearestLand = -1f;
-            for (int i = 0; i < hits.Length; i++)
+            RaycastHit hit;
+            if (Physics.Raycast(origin, dir, out hit, 180f, ~0, QueryTriggerInteraction.Ignore))
             {
-                var h = hits[i];
-                if (h.collider == null) continue;
-                if (h.point.y < rp.y + 1.2f) continue;
-                if (h.collider.GetComponentInParent<Raft>() != null) continue;
-                if (h.collider.GetComponentInParent<Network_Entity>() != null) continue;
-                if (nearestLand < 0f || h.distance < nearestLand) nearestLand = h.distance;
+                if (hit.collider != null && hit.collider.GetComponentInParent<Raft>() == null)
+                    return hit.distance;
             }
-            return nearestLand;
+            return Mathf.Sqrt(bestSqr);
         }
 
         private void ApplyAutoCookerAndSmelter(Network_Player player)
@@ -1688,9 +1684,10 @@ namespace RaftTrainer
         {
             try
             {
-                var sharks = UnityEngine.Object.FindObjectsOfType<Shark>();
-                foreach (var s in sharks)
+                int count = cachedSharks.Count;
+                for (int i = 0; i < count; i++)
                 {
+                    var s = cachedSharks[i];
                     if (s != null)
                     {
                         if (fSharkCanAttack != null) fSharkCanAttack.SetValue(s, false);
@@ -2773,11 +2770,15 @@ namespace RaftTrainer
             try
             {
                 Vector3 target = player.transform.position + Vector3.up * 0.5f;
-                foreach (var p in cachedPickups)
+                float rSqr = magnetRadius * magnetRadius;
+                int count = cachedPickups.Count;
+                for (int i = 0; i < count; i++)
                 {
+                    var p = cachedPickups[i];
                     if (p == null) continue;
-                    float dist = Vector3.Distance(p.transform.position, target);
-                    if (dist < magnetRadius && dist > 1.2f && IsMagnetAllowed(p))
+                    Vector3 diff = p.transform.position - target;
+                    float distSqr = diff.sqrMagnitude;
+                    if (distSqr < rSqr && distSqr > 1.44f && IsMagnetAllowed(p))
                     {
                         p.transform.position = Vector3.MoveTowards(p.transform.position, target, 28f * Time.deltaTime);
                     }
@@ -2788,6 +2789,7 @@ namespace RaftTrainer
 
         private void UpdateNightVision(Network_Player player)
         {
+            if (!nightVision && nightVisionLight == null) return;
             try
             {
                 if (nightVision)
@@ -2820,12 +2822,13 @@ namespace RaftTrainer
         {
             try
             {
-                var entities = UnityEngine.Object.FindObjectsOfType<Network_Entity>();
                 int killed = 0;
                 var host = ComponentManager<Network_Host>.Value;
                 var player = ComponentManager<Network_Player>.Value;
-                foreach (var ent in entities)
+                int count = cachedEntities.Count;
+                for (int i = 0; i < count; i++)
                 {
+                    var ent = cachedEntities[i];
                     if (ent == null || (player != null && ent.gameObject == player.gameObject)) continue;
 
                     if (host != null)
@@ -2888,17 +2891,19 @@ namespace RaftTrainer
                 var player = ComponentManager<Network_Player>.Value;
                 if (player == null) return;
 
-                var landmarks = UnityEngine.Object.FindObjectsOfType<Landmark>();
                 Landmark closest = null;
-                float minDistance = float.MaxValue;
+                float minSqr = float.MaxValue;
+                Vector3 pPos = player.transform.position;
+                int count = cachedLandmarks.Count;
 
-                foreach (var lm in landmarks)
+                for (int i = 0; i < count; i++)
                 {
+                    var lm = cachedLandmarks[i];
                     if (lm == null) continue;
-                    float d = Vector3.Distance(player.transform.position, lm.transform.position);
-                    if (d < minDistance)
+                    float dSqr = (pPos - lm.transform.position).sqrMagnitude;
+                    if (dSqr < minSqr)
                     {
-                        minDistance = d;
+                        minSqr = dSqr;
                         closest = lm;
                     }
                 }
@@ -2907,7 +2912,7 @@ namespace RaftTrainer
                 {
                     player.transform.position = closest.transform.position + Vector3.up * 5f;
                     if (player.PersonController != null) player.PersonController.ResetFallDuration();
-                    statusMessage = "Телепортирован к острову (" + minDistance.ToString("F0") + "м)!";
+                    statusMessage = "Телепортирован к острову (" + Mathf.Sqrt(minSqr).ToString("F0") + "м)!";
                 }
                 else
                 {
@@ -3237,10 +3242,10 @@ namespace RaftTrainer
                         player.gameObject.tag = "Untagged";
                     }
 
-                    var sharks = UnityEngine.Object.FindObjectsOfType<Shark>();
-                    for (int i = 0; i < sharks.Length; i++)
+                    int sCount = cachedSharks.Count;
+                    for (int i = 0; i < sCount; i++)
                     {
-                        var s = sharks[i];
+                        var s = cachedSharks[i];
                         if (s == null) continue;
                         if (fSharkTargetToAttack != null) fSharkTargetToAttack.SetValue(s, null);
                         if (fSharkCanAttack != null) fSharkCanAttack.SetValue(s, false);
@@ -3467,6 +3472,7 @@ namespace RaftTrainer
 
         private void HandleZoom(Network_Player player)
         {
+            if (!zoomEnabled && !isZooming && !Input.GetKey(KeyCode.Z)) return;
             try
             {
                 if (player == null || player.Camera == null) return;
@@ -3494,6 +3500,7 @@ namespace RaftTrainer
 
         private void UpdateSubseaFloodlight(Network_Player player)
         {
+            if (!subseaFloodlight && floodlightComp == null) return;
             try
             {
                 if (player == null || player.Camera == null) return;

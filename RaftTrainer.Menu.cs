@@ -1819,7 +1819,7 @@ namespace RaftTrainer
 
                             if (autopilotEnabled && cachedRaft != null)
                             {
-                                Rigidbody rb = cachedRaft.GetComponent<Rigidbody>();
+                                Rigidbody rb = cachedRaftRb;
                                 if (rb != null)
                                 {
                                     float spd = rb.velocity.magnitude;
