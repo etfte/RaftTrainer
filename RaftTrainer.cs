@@ -157,6 +157,14 @@ namespace RaftTrainer
         private bool lastClearWaterState = false;
         private float nextClearWaterScanTime = 0f;
         private float nextCalmSeaTime = 0f;
+        private bool lastCheatGodMode = false;
+        private bool lastFreeCraftState = false;
+        private float nextTailwindTime = 0f;
+        private MeshPath_Zipline[] cachedZiplinePaths = null;
+        private float nextZiplineScanTime = 0f;
+        private Block_CookingStand[] cachedCookingStands = null;
+        private Storage_Small[] cachedChests = null;
+        private float nextMachineryScanTime = 0f;
 
         // PLAYER & CRAFTING
         public bool godMode = true;
@@ -393,13 +401,17 @@ namespace RaftTrainer
                 }
             }
 
-            try
+            bool desiredGodCheat = godMode || freeBuild;
+            if (desiredGodCheat != lastCheatGodMode)
             {
-                Cheat.UseCheats = true;
-                Cheat.UseGodMode = godMode || freeBuild;
-                
+                lastCheatGodMode = desiredGodCheat;
+                try
+                {
+                    Cheat.UseCheats = true;
+                    Cheat.UseGodMode = desiredGodCheat;
+                }
+                catch {}
             }
-            catch {}
 
             ProcessKeybinds();
 
@@ -413,31 +425,34 @@ namespace RaftTrainer
             if (player == null) return;
             if (noBuildRestrictions) ApplyNoBuildRestrictions(player);
 
-            // Player Stats (God Mode, Infinite Needs)
+            // Player Stats (God Mode, Infinite Needs - guarded property updates)
             if (player.Stats != null)
             {
                 var stats = player.Stats;
-                if (godMode && stats.stat_health != null) stats.stat_health.Value = stats.stat_health.Max;
+                if (godMode && stats.stat_health != null && stats.stat_health.Value < stats.stat_health.Max)
+                    stats.stat_health.Value = stats.stat_health.Max;
 
                 if (godMode || infiniteNeeds)
                 {
-                    if (stats.stat_oxygen != null) stats.stat_oxygen.Value = stats.stat_oxygen.Max;
-                    if (stats.stat_hunger != null && stats.stat_hunger.normalConsumable != null)
+                    if (stats.stat_oxygen != null && stats.stat_oxygen.Value < stats.stat_oxygen.Max)
+                        stats.stat_oxygen.Value = stats.stat_oxygen.Max;
+                    if (stats.stat_hunger != null && stats.stat_hunger.normalConsumable != null && stats.stat_hunger.normalConsumable.Value < stats.stat_hunger.normalConsumable.Max)
                         stats.stat_hunger.normalConsumable.Value = stats.stat_hunger.normalConsumable.Max;
-                    if (stats.stat_thirst != null && stats.stat_thirst.normalConsumable != null)
+                    if (stats.stat_thirst != null && stats.stat_thirst.normalConsumable != null && stats.stat_thirst.normalConsumable.Value < stats.stat_thirst.normalConsumable.Max)
                         stats.stat_thirst.normalConsumable.Value = stats.stat_thirst.normalConsumable.Max;
                 }
             }
 
             // Free Crafting (Unlimited Resources)
-            if (freeCraft)
+            if (freeCraft != lastFreeCraftState)
             {
+                lastFreeCraftState = freeCraft;
                 try
                 {
                     var gmv = GameModeValueManager.GetCurrentGameModeValue();
                     if (gmv != null && gmv.playerSpecificVariables != null)
                     {
-                        gmv.playerSpecificVariables.unlimitedResources = true;
+                        gmv.playerSpecificVariables.unlimitedResources = freeCraft;
                     }
                 }
                 catch {}
@@ -450,18 +465,19 @@ namespace RaftTrainer
 
                 if (noFallDamage || godMode || flyMode) controller.ResetFallDuration();
 
-                if (superSpeed)
-                {
-                    controller.GroundVelocityModifier = speedMultiplier;
-                    controller.WaterVelocityModifier = superDiving ? swimSpeedMultiplier : speedMultiplier;
-                }
-                else
-                {
-                    controller.GroundVelocityModifier = 1f;
-                    controller.WaterVelocityModifier = superDiving ? swimSpeedMultiplier : 1f;
-                }
+                float targetGround = superSpeed ? speedMultiplier : 1f;
+                float targetWater = superDiving ? swimSpeedMultiplier : (superSpeed ? speedMultiplier : 1f);
 
-                if (superJump) controller.jumpSpeed = 7f * jumpMultiplier;
+                if (controller.GroundVelocityModifier != targetGround)
+                    controller.GroundVelocityModifier = targetGround;
+                if (controller.WaterVelocityModifier != targetWater)
+                    controller.WaterVelocityModifier = targetWater;
+
+                if (superJump)
+                {
+                    float targetJump = 7f * jumpMultiplier;
+                    if (controller.jumpSpeed != targetJump) controller.jumpSpeed = targetJump;
+                }
 
                 if (flyMode)
                 {
@@ -485,11 +501,13 @@ namespace RaftTrainer
             {
                 try
                 {
-                    var r = ComponentManager<Raft>.Value;
-                    if (r != null)
+                    if (cachedRaft == null) cachedRaft = ComponentManager<Raft>.Value;
+                    if (cachedRaft != null)
                     {
-                        r.maxSpeed = 8f * turboRaftMultiplier;
-                        r.waterDriftSpeed = 4f * turboRaftMultiplier;
+                        float targetMax = 8f * turboRaftMultiplier;
+                        float targetDrift = 4f * turboRaftMultiplier;
+                        if (cachedRaft.maxSpeed != targetMax) cachedRaft.maxSpeed = targetMax;
+                        if (cachedRaft.waterDriftSpeed != targetDrift) cachedRaft.waterDriftSpeed = targetDrift;
                     }
                 }
                 catch {}
@@ -589,7 +607,11 @@ namespace RaftTrainer
 
             // Freeze Raft & Tailwind
             if (freezeRaft) ApplyFreezeRaft();
-            if (alwaysTailwind) ApplyAlwaysTailwind();
+            if (alwaysTailwind && Time.time > nextTailwindTime)
+            {
+                nextTailwindTime = Time.time + 0.35f;
+                ApplyAlwaysTailwind();
+            }
 
             if (autoFishing && Time.time > nextAutoFishTime)
             {
@@ -889,15 +911,21 @@ namespace RaftTrainer
 
                 if (Time.time < ziplineReattachTime) return;
 
-                var paths = UnityEngine.Object.FindObjectsOfType<MeshPath_Zipline>();
-                Vector3 pp = player.transform.position;
-                for (int i = 0; i < paths.Length; i++)
+                if (cachedZiplinePaths == null || Time.time > nextZiplineScanTime)
                 {
-                    var path = paths[i];
+                    nextZiplineScanTime = Time.time + 3.0f;
+                    cachedZiplinePaths = UnityEngine.Object.FindObjectsOfType<MeshPath_Zipline>();
+                }
+                if (cachedZiplinePaths == null) return;
+
+                Vector3 pp = player.transform.position;
+                for (int i = 0; i < cachedZiplinePaths.Length; i++)
+                {
+                    var path = cachedZiplinePaths[i];
                     if (path == null) continue;
                     int idx = path.GetClosestPointIndexFromWorldPosition(pp, true);
                     Vector3 point = path.GetWorldPointPositionFromIndex(idx);
-                    if (Vector3.Distance(point, pp) > 2.5f) continue;
+                    if ((point - pp).sqrMagnitude > 6.25f) continue;
 
                     ziplineReattachTime = Time.time + 4f;
                     if (zip.AttachToZipline(path, 0))
@@ -999,17 +1027,28 @@ namespace RaftTrainer
             try
             {
                 Vector3 pp = player.transform.position;
-                var chests = new List<Storage_Small>();
-                var storages = UnityEngine.Object.FindObjectsOfType<Storage_Small>();
-                for (int i = 0; i < storages.Length; i++)
+                if (cachedCookingStands == null || Time.time > nextMachineryScanTime)
                 {
-                    if (storages[i] != null && Vector3.Distance(storages[i].transform.position, pp) <= autoLogisticsRadius)
+                    nextMachineryScanTime = Time.time + 3.0f;
+                    cachedCookingStands = UnityEngine.Object.FindObjectsOfType<Block_CookingStand>();
+                    cachedChests = UnityEngine.Object.FindObjectsOfType<Storage_Small>();
+                }
+
+                float rSqr = autoLogisticsRadius * autoLogisticsRadius;
+                var chests = new List<Storage_Small>();
+                if (cachedChests != null)
+                {
+                    for (int i = 0; i < cachedChests.Length; i++)
                     {
-                        chests.Add(storages[i]);
+                        var st = cachedChests[i];
+                        if (st != null && (st.transform.position - pp).sqrMagnitude <= rSqr)
+                        {
+                            chests.Add(st);
+                        }
                     }
                 }
 
-                var machines = UnityEngine.Object.FindObjectsOfType<Block_CookingStand>();
+                var machines = cachedCookingStands ?? new Block_CookingStand[0];
                 int moves = 0;
                 for (int m = 0; m < machines.Length && moves < 8; m++)
                 {
@@ -2017,15 +2056,14 @@ namespace RaftTrainer
         {
             try
             {
-                var raft = ComponentManager<Raft>.Value;
-                if (raft != null)
+                if (cachedRaftRb != null)
                 {
-                    var rb = raft.GetComponent<Rigidbody>();
-                    if (rb != null)
-                    {
-                        rb.velocity = Vector3.zero;
-                        rb.angularVelocity = Vector3.zero;
-                    }
+                    cachedRaftRb.velocity = Vector3.zero;
+                    cachedRaftRb.angularVelocity = Vector3.zero;
+                }
+                else if (cachedRaft != null)
+                {
+                    cachedRaftRb = cachedRaft.GetComponent<Rigidbody>();
                 }
             }
             catch {}
@@ -2281,8 +2319,10 @@ namespace RaftTrainer
             {
                 if (Sail.AllSails != null)
                 {
-                    foreach (var s in Sail.AllSails)
+                    int sCount = Sail.AllSails.Count;
+                    for (int i = 0; i < sCount; i++)
                     {
+                        var s = Sail.AllSails[i];
                         if (s != null && s.open)
                         {
                             s.forceMultiplier = 2.5f * windSpeedMultiplier;

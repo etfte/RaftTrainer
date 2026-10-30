@@ -72,11 +72,14 @@ namespace RaftTrainer
                 {
                     nextEspPlayersTime = now + 1f;
                     cachedPlayers.Clear();
-                    var players = UnityEngine.Object.FindObjectsOfType<Network_Player>();
-                    for (int i = 0; i < players.Length; i++)
+                    if (espPlayers)
                     {
-                        var p = players[i];
-                        if (p != null && p.gameObject != player.gameObject) cachedPlayers.Add(p);
+                        var players = UnityEngine.Object.FindObjectsOfType<Network_Player>();
+                        for (int i = 0; i < players.Length; i++)
+                        {
+                            var p = players[i];
+                            if (p != null && p.gameObject != player.gameObject) cachedPlayers.Add(p);
+                        }
                     }
                 }
 
@@ -101,7 +104,7 @@ namespace RaftTrainer
                 if (now >= nextEspPickupTime)
                 {
                     nextEspPickupTime = now + 0.5f;
-                    RefreshPickupCache(pp);
+                    if (espAllItems || espBarrels || espUnderwaterOres || itemMagnet) RefreshPickupCache(pp);
                 }
 
                 if (now >= nextEspTreasureTime)
@@ -213,12 +216,16 @@ namespace RaftTrainer
             cachedOres.Clear();
 
             float radius = Mathf.Max(espItemMaxDist, Mathf.Max(espOreMaxDist, magnetRadius));
+            float radiusSqr = radius * radius;
+            float itemMaxSqr = espItemMaxDist * espItemMaxDist;
+            float oreMaxSqr = espOreMaxDist * espOreMaxDist;
+
             var all = UnityEngine.Object.FindObjectsOfType<PickupItem>();
             espPickupScratch.Clear();
             for (int i = 0; i < all.Length; i++)
             {
                 var it = all[i];
-                if (it != null && Vector3.Distance(it.transform.position, pp) <= radius) espPickupScratch.Add(it);
+                if (it != null && (it.transform.position - pp).sqrMagnitude <= radiusSqr) espPickupScratch.Add(it);
             }
 
             espSortOrigin = pp;
@@ -227,9 +234,9 @@ namespace RaftTrainer
             for (int i = 0; i < espPickupScratch.Count; i++)
             {
                 var it = espPickupScratch[i];
-                float d = Vector3.Distance(it.transform.position, pp);
-                if (d <= espItemMaxDist && cachedPickups.Count < 50 && IsPickupAllowed(it)) cachedPickups.Add(it);
-                if (espUnderwaterOres && d <= espOreMaxDist && IsOreObject(it)) cachedOres.Add(it);
+                float dSqr = (it.transform.position - pp).sqrMagnitude;
+                if (dSqr <= itemMaxSqr && cachedPickups.Count < 50 && IsPickupAllowed(it)) cachedPickups.Add(it);
+                if (espUnderwaterOres && dSqr <= oreMaxSqr && IsOreObject(it)) cachedOres.Add(it);
             }
         }
 
@@ -381,8 +388,9 @@ namespace RaftTrainer
                 Vector3 toTag = tag.Position - camPos;
                 if (Vector3.Dot(camFwd, toTag) <= 0.1f) continue;
 
+                float maxD = tag.MaxDist;
+                if (toTag.sqrMagnitude > maxD * maxD) continue;
                 float dist = toTag.magnitude;
-                if (dist > tag.MaxDist) continue;
 
                 Vector3 sp = cam.WorldToScreenPoint(tag.Position + Vector3.up * tag.Offset);
                 if (sp.z <= 0.3f || sp.x < -120f || sp.x > Screen.width + 120f || sp.y < -60f || sp.y > Screen.height + 60f) continue;

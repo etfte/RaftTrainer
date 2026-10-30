@@ -22,5 +22,6 @@ copy /Y "%OUT%" "%MANAGED%\RaftTrainer.dll" >nul
 echo [OK] Updated in game: %MANAGED%\RaftTrainer.dll
 copy /Y "%OUT%" "%USERPROFILE%\Desktop\RaftTrainer.dll" >nul
 echo [OK] Copied to Desktop: %USERPROFILE%\Desktop\RaftTrainer.dll
+if exist "%USERPROFILE%\OneDrive\Desktop" copy /Y "%OUT%" "%USERPROFILE%\OneDrive\Desktop\RaftTrainer.dll" >nul
 echo ===================================================================
 echo Done!
