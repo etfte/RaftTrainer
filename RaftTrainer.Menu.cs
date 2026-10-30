@@ -22,6 +22,11 @@ namespace RaftTrainer
         private static readonly Color AlarmBaseColor = new Color(1f, 0.25f, 0.3f, 1f);
         private static readonly Color MinimapNorthColor = new Color(1f, 0.9f, 0.4f);
         private static readonly GUILayoutOption[] OptToggleRow = new GUILayoutOption[] { GUILayout.ExpandWidth(true) };
+        private static readonly GUILayoutOption[] OptHeight18 = new GUILayoutOption[] { GUILayout.Height(18) };
+        private static readonly GUILayoutOption[] OptHeight20 = new GUILayoutOption[] { GUILayout.Height(20) };
+        private static readonly GUILayoutOption[] OptHeight22 = new GUILayoutOption[] { GUILayout.Height(22) };
+        private static readonly GUILayoutOption[] OptHeight24 = new GUILayoutOption[] { GUILayout.Height(24) };
+        private static readonly GUILayoutOption[] OptHeight26 = new GUILayoutOption[] { GUILayout.Height(26) };
         private string cachedWeatherTxt = "";
         private float nextWeatherTxtTime = 0f;
         // ТАБЫ
@@ -690,7 +695,7 @@ namespace RaftTrainer
             infiniteHarpoonNet = DrawModuleToggle("Гарпун: вечные сети", infiniteHarpoonNet);
 
             GUILayout.Space(4);
-            if (GUILayout.Button("💥 Силовой Импульс (20м)", actionBtnAmberStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("💥 Силовой Импульс (20м)", actionBtnAmberStyle, OptHeight22))
             {
                 ApplyRepulsorPulse(ComponentManager<Network_Player>.Value);
             }
@@ -719,7 +724,7 @@ namespace RaftTrainer
             fastChop = DrawModuleToggle("Быстрый Топор", fastChop);
 
             GUILayout.Space(8);
-            if (GUILayout.Button("☠ Уничтожить врагов", actionBtnRedStyle, GUILayout.Height(26)))
+            if (GUILayout.Button("☠ Уничтожить врагов", actionBtnRedStyle, OptHeight26))
             {
                 KillAllEnemies();
             }
@@ -797,12 +802,12 @@ namespace RaftTrainer
             }
 
             GUILayout.Space(8);
-            if (GUILayout.Button("🏝 Телепорт на остров", actionBtnGreenStyle, GUILayout.Height(24)))
+            if (GUILayout.Button("🏝 Телепорт на остров", actionBtnGreenStyle, OptHeight24))
             {
                 TeleportToNearestIsland();
             }
 
-            if (GUILayout.Button("⚓ Телепорт на плот", actionBtnBlueStyle, GUILayout.Height(24)))
+            if (GUILayout.Button("⚓ Телепорт на плот", actionBtnBlueStyle, OptHeight24))
             {
                 TeleportToRaft();
             }
@@ -814,7 +819,7 @@ namespace RaftTrainer
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Слот " + (i + 1) + (posSlotHas[i] ? " ✓" : " (пусто)"), itemLabelStyle, GUILayout.Width(96), GUILayout.Height(20));
                 if (GUILayout.Button("Запомнить", actionBtnStyle, GUILayout.Height(20))) SavePosSlot(i);
-                if (GUILayout.Button("Вернуться", actionBtnGreenStyle, GUILayout.Height(20))) GoPosSlot(i);
+                if (GUILayout.Button("Вернуться", actionBtnGreenStyle, OptHeight20)) GoPosSlot(i);
                 GUILayout.EndHorizontal();
             }
             GUILayout.Label("<i>Возврат по хоткею: F8 — слот 1 (бинды в СИСТЕМА)</i>", subLabelStyle);
@@ -839,7 +844,7 @@ namespace RaftTrainer
             espTracers = DrawModuleToggle("ESP-линии (трассеры к целям)", espTracers);
             sharkTrailOn = DrawModuleToggle("След акул (лента 30 сек)", sharkTrailOn);
             espCrops = DrawModuleToggle("ESP урожая (% созревания)", espCrops);
-            if (GUILayout.Button("🏝 ТП к ближайшему кладу", actionBtnAmberStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🏝 ТП к ближайшему кладу", actionBtnAmberStyle, OptHeight22))
             {
                 TeleportToNearestTreasure();
             }
@@ -876,14 +881,14 @@ namespace RaftTrainer
 
             GUILayout.Space(6);
             GUILayout.Label("<b>СЮЖЕТНЫЙ РАДАР:</b>", subLabelStyle);
-            if (GUILayout.Button("📡 Радиовышка (#1)", actionBtnStyle, GUILayout.Height(18))) SetRadarFrequency(0);
-            if (GUILayout.Button("🛳 Васагатан (#2)", actionBtnStyle, GUILayout.Height(18))) SetRadarFrequency(1);
-            if (GUILayout.Button("🐻 Бальбоа (#3)", actionBtnStyle, GUILayout.Height(18))) SetRadarFrequency(2);
-            if (GUILayout.Button("🏜 Караван (#4)", actionBtnStyle, GUILayout.Height(18))) SetRadarFrequency(3);
-            if (GUILayout.Button("🏙 Тангароа (#5)", actionBtnStyle, GUILayout.Height(18))) SetRadarFrequency(4);
-            if (GUILayout.Button("🏗 Варуна (#6)", actionBtnStyle, GUILayout.Height(18))) SetRadarFrequency(5);
-            if (GUILayout.Button("❄ Темперанс (#7)", actionBtnStyle, GUILayout.Height(18))) SetRadarFrequency(6);
-            if (GUILayout.Button("🏰 Утопия (#8)", actionBtnStyle, GUILayout.Height(18))) SetRadarFrequency(7);
+            if (GUILayout.Button("📡 Радиовышка (#1)", actionBtnStyle, OptHeight18)) SetRadarFrequency(0);
+            if (GUILayout.Button("🛳 Васагатан (#2)", actionBtnStyle, OptHeight18)) SetRadarFrequency(1);
+            if (GUILayout.Button("🐻 Бальбоа (#3)", actionBtnStyle, OptHeight18)) SetRadarFrequency(2);
+            if (GUILayout.Button("🏜 Караван (#4)", actionBtnStyle, OptHeight18)) SetRadarFrequency(3);
+            if (GUILayout.Button("🏙 Тангароа (#5)", actionBtnStyle, OptHeight18)) SetRadarFrequency(4);
+            if (GUILayout.Button("🏗 Варуна (#6)", actionBtnStyle, OptHeight18)) SetRadarFrequency(5);
+            if (GUILayout.Button("❄ Темперанс (#7)", actionBtnStyle, OptHeight18)) SetRadarFrequency(6);
+            if (GUILayout.Button("🏰 Утопия (#8)", actionBtnStyle, OptHeight18)) SetRadarFrequency(7);
 
             GUILayout.Space(6);
             GUILayout.Label("<b>V14 КАРТА И ЗРЕНИЕ:</b>", subLabelStyle);
@@ -912,17 +917,17 @@ namespace RaftTrainer
             noBuildRestrictions = DrawModuleToggle("Стройка без опор", noBuildRestrictions);
 
             GUILayout.Space(6);
-            if (GUILayout.Button("📦 Умная выгрузка (Stash)", actionBtnGreenStyle, GUILayout.Height(24)))
+            if (GUILayout.Button("📦 Умная выгрузка (Stash)", actionBtnGreenStyle, OptHeight24))
             {
                 SmartChestAutoSort(ComponentManager<Network_Player>.Value);
             }
 
-            if (GUILayout.Button("🔓 Взлом дверей и кодов", actionBtnAmberStyle, GUILayout.Height(24)))
+            if (GUILayout.Button("🔓 Взлом дверей и кодов", actionBtnAmberStyle, OptHeight24))
             {
                 PuzzleAutoSolver();
             }
 
-            if (GUILayout.Button("🧰 Открыть ближ. сундук", actionBtnBlueStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🧰 Открыть ближ. сундук", actionBtnBlueStyle, OptHeight22))
             {
                 OpenNearestChest(ComponentManager<Network_Player>.Value);
             }
@@ -930,26 +935,26 @@ namespace RaftTrainer
             GUILayout.Space(4);
             GUILayout.Label("<b>ДУБЛИКАТОР СУНДУКА:</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("x2", actionBtnBlueStyle, GUILayout.Height(22))) DuplicateChestItems(2);
-            if (GUILayout.Button("x10", actionBtnPurpleStyle, GUILayout.Height(22))) DuplicateChestItems(10);
+            if (GUILayout.Button("x2", actionBtnBlueStyle, OptHeight22)) DuplicateChestItems(2);
+            if (GUILayout.Button("x10", actionBtnPurpleStyle, OptHeight22)) DuplicateChestItems(10);
             GUILayout.EndHorizontal();
 
-            if (GUILayout.Button("🔑 Собрать сюжетки в сумку", actionBtnStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🔑 Собрать сюжетки в сумку", actionBtnStyle, OptHeight22))
             {
                 CollectAllQuestItems(ComponentManager<Network_Player>.Value);
             }
 
-            if (GUILayout.Button("📖 Открыть все заметки (T)", actionBtnGreenStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("📖 Открыть все заметки (T)", actionBtnGreenStyle, OptHeight22))
             {
                 UnlockAllJournalNotes();
             }
 
-            if (GUILayout.Button("👥 Открыть персонажей", actionBtnBlueStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("👥 Открыть персонажей", actionBtnBlueStyle, OptHeight22))
             {
                 UnlockAllGameCharacters();
             }
 
-            if (GUILayout.Button("📚 Изучить все чертежи", actionBtnGreenStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("📚 Изучить все чертежи", actionBtnGreenStyle, OptHeight22))
             {
                 UnlockAllResearchRecipes();
             }
@@ -957,8 +962,8 @@ namespace RaftTrainer
             GUILayout.Space(8);
             GUILayout.Label("<b>СНАРЯЖЕНИЕ (снимок инвентаря):</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("💾 Запомнить инвентарь", actionBtnBlueStyle, GUILayout.Height(22))) SaveInventorySnapshot();
-            if (GUILayout.Button("↩ Восстановить", actionBtnGreenStyle, GUILayout.Height(22))) RestoreInventorySnapshot();
+            if (GUILayout.Button("💾 Запомнить инвентарь", actionBtnBlueStyle, OptHeight22)) SaveInventorySnapshot();
+            if (GUILayout.Button("↩ Восстановить", actionBtnGreenStyle, OptHeight22)) RestoreInventorySnapshot();
             GUILayout.EndHorizontal();
             GUILayout.Label(hasInventorySnapshot ? "<i>Снимок готов — восстановит вещи после смерти/потери</i>" : "<i>Снимка нет — запомните инвентарь заранее</i>", subLabelStyle);
 
@@ -978,7 +983,7 @@ namespace RaftTrainer
             GUILayout.Label("<i>В оригинальной игре сумки закрыты — содержимое видно, только если сервер его синхронизирует</i>", subLabelStyle);
 
             GUILayout.Space(4);
-            if (GUILayout.Button("🎒 Отсортировать инвентарь (O)", actionBtnBlueStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🎒 Отсортировать инвентарь (O)", actionBtnBlueStyle, OptHeight22))
             {
                 SortInventoryNow();
             }
@@ -988,7 +993,7 @@ namespace RaftTrainer
             craftHelperOn = DrawModuleToggle("Показывать списки", craftHelperOn);
             if (craftHelperOn)
             {
-                if (GUILayout.Button("⟲ Пересчитать сейчас", actionBtnStyle, GUILayout.Height(20)))
+                if (GUILayout.Button("⟲ Пересчитать сейчас", actionBtnStyle, OptHeight20))
                 {
                     nextCraftScanTime = 0f;
                     ScanCraftHelper();
@@ -1043,22 +1048,22 @@ namespace RaftTrainer
             if (autoRefuelEngines) GUILayout.Label("<i>Двигатели/плавильни/грили берут доски из сундуков рядом</i>", subLabelStyle);
 
             GUILayout.Space(6);
-            if (GUILayout.Button("🔨 Починить плот (100%)", actionBtnGreenStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🔨 Починить плот (100%)", actionBtnGreenStyle, OptHeight22))
             {
                 RepairAllRaftBlocks();
             }
 
-            if (GUILayout.Button("🛡 Укрепить фундамент металлом", actionBtnAmberStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🛡 Укрепить фундамент металлом", actionBtnAmberStyle, OptHeight22))
             {
                 ReinforceAllRaftFoundations();
             }
 
-            if (GUILayout.Button("🏗 Расширить плот (+3x3)", actionBtnBlueStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🏗 Расширить плот (+3x3)", actionBtnBlueStyle, OptHeight22))
             {
                 BatchExpandRaftFoundations(3);
             }
 
-            if (GUILayout.Button("🏗 Расширить плот (+5x5)", actionBtnBlueStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🏗 Расширить плот (+5x5)", actionBtnBlueStyle, OptHeight22))
             {
                 BatchExpandRaftFoundations(5);
             }
@@ -1068,12 +1073,12 @@ namespace RaftTrainer
             GUILayout.Label("+3 ряда: " + CalcExpandCost(3), subLabelStyle);
             GUILayout.Label("+5 рядов: " + CalcExpandCost(5), subLabelStyle);
 
-            if (GUILayout.Button("⚓ Сбросить/Поднять якорь", actionBtnStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("⚓ Сбросить/Поднять якорь", actionBtnStyle, OptHeight22))
             {
                 ToggleStationaryAnchor();
             }
 
-            if (GUILayout.Button("🎨 Покрасить весь плот", actionBtnGreenStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🎨 Покрасить весь плот", actionBtnGreenStyle, OptHeight22))
             {
                 PaintAllRaftBlocks();
             }
@@ -1083,8 +1088,8 @@ namespace RaftTrainer
             GUILayout.Label("<b>АВТОПИЛОТ ПЛОТА (F9):</b>", subLabelStyle);
             autopilotEnabled = DrawModuleToggle("Автопилот включен", autopilotEnabled);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("🏝 Курс на остров", actionBtnGreenStyle, GUILayout.Height(20))) SetAutopilotToIsland();
-            if (GUILayout.Button("📍 Курс на точку", actionBtnBlueStyle, GUILayout.Height(20))) SetAutopilotToWaypoint();
+            if (GUILayout.Button("🏝 Курс на остров", actionBtnGreenStyle, OptHeight20)) SetAutopilotToIsland();
+            if (GUILayout.Button("📍 Курс на точку", actionBtnBlueStyle, OptHeight20)) SetAutopilotToWaypoint();
             GUILayout.EndHorizontal();
             GUILayout.Label("Тяга: " + autopilotSpeed.ToString("F1"), subLabelStyle);
             autopilotSpeed = GUILayout.HorizontalSlider(autopilotSpeed, 2f, 14f);
@@ -1095,7 +1100,7 @@ namespace RaftTrainer
             GUILayout.Label("<b>СТРОИТЕЛЬНАЯ ЛИНЕЙКА (ЛКМ в мир):</b>", subLabelStyle);
             rulerOn = DrawModuleToggle("Линейка включена", rulerOn);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Сброс A/B", actionBtnStyle, GUILayout.Height(20))) { hasRulerA = false; hasRulerB = false; }
+            if (GUILayout.Button("Сброс A/B", actionBtnStyle, OptHeight20)) { hasRulerA = false; hasRulerB = false; }
             if (hasRulerA && hasRulerB)
                 GUILayout.Label("D = " + Vector3.Distance(rulerA, rulerB).ToString("F2") + " м", itemLabelActiveStyle);
             GUILayout.EndHorizontal();
@@ -1106,18 +1111,18 @@ namespace RaftTrainer
             selectMode = DrawModuleToggle("Режим выделения", selectMode);
             GUILayout.Label("Выделено: " + selectedBlocks.Count + " шт.", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Очистить", actionBtnStyle, GUILayout.Height(20))) selectedBlocks.Clear();
-            if (GUILayout.Button("Починить", actionBtnGreenStyle, GUILayout.Height(20))) RepairSelectedBlocks();
-            if (GUILayout.Button("Краска", actionBtnPurpleStyle, GUILayout.Height(20))) PaintSelectedBlocks();
-            if (GUILayout.Button("Снести", actionBtnRedStyle, GUILayout.Height(20))) DeleteSelectedBlocks();
+            if (GUILayout.Button("Очистить", actionBtnStyle, OptHeight20)) selectedBlocks.Clear();
+            if (GUILayout.Button("Починить", actionBtnGreenStyle, OptHeight20)) RepairSelectedBlocks();
+            if (GUILayout.Button("Краска", actionBtnPurpleStyle, OptHeight20)) PaintSelectedBlocks();
+            if (GUILayout.Button("Снести", actionBtnRedStyle, OptHeight20)) DeleteSelectedBlocks();
             GUILayout.EndHorizontal();
 
             // ПЛАН ПЛОТА
             GUILayout.Space(8);
             GUILayout.Label("<b>ПЛАН ПЛОТА (копия фундаментов):</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("📋 Копировать план", actionBtnBlueStyle, GUILayout.Height(20))) CopyRaftBlueprint();
-            if (GUILayout.Button("📌 Вставить сдвиг", actionBtnGreenStyle, GUILayout.Height(20))) PasteRaftBlueprint();
+            if (GUILayout.Button("📋 Копировать план", actionBtnBlueStyle, OptHeight20)) CopyRaftBlueprint();
+            if (GUILayout.Button("📌 Вставить сдвиг", actionBtnGreenStyle, OptHeight20)) PasteRaftBlueprint();
             GUILayout.EndHorizontal();
             GUILayout.Label("Сдвиг вставки: " + blueprintPasteOffset.ToString("F0") + " м", subLabelStyle);
             blueprintPasteOffset = GUILayout.HorizontalSlider(blueprintPasteOffset, 3f, 30f);
@@ -1126,8 +1131,8 @@ namespace RaftTrainer
             GUILayout.Space(8);
             GUILayout.Label("<b>КОПИР ЭТАЖА (выделенные блоки → на этаж выше):</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("📋 Копировать этаж", actionBtnBlueStyle, GUILayout.Height(20))) CopyFloor();
-            if (GUILayout.Button("📌 Вставить этажом выше", actionBtnGreenStyle, GUILayout.Height(20))) PasteFloor();
+            if (GUILayout.Button("📋 Копировать этаж", actionBtnBlueStyle, OptHeight20)) CopyFloor();
+            if (GUILayout.Button("📌 Вставить этажом выше", actionBtnGreenStyle, OptHeight20)) PasteFloor();
             GUILayout.EndHorizontal();
             GUILayout.Label("Смещение вверх: " + floorPasteOffset.ToString("F1") + " м", subLabelStyle);
             floorPasteOffset = GUILayout.HorizontalSlider(floorPasteOffset, 1.5f, 6f);
@@ -1138,7 +1143,7 @@ namespace RaftTrainer
             GUILayout.Space(4);
             GUILayout.Label("<b>МУСОРНЫЙ ДОЖДЬ: " + junkRainAmount + " шт.</b>", subLabelStyle);
             junkRainAmount = Mathf.RoundToInt(GUILayout.HorizontalSlider(junkRainAmount, 5f, 60f));
-            if (GUILayout.Button("🌧 Вызвать дождь", actionBtnAmberStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🌧 Вызвать дождь", actionBtnAmberStyle, OptHeight22))
             {
                 SpawnJunkRain(junkRainAmount);
             }
@@ -1146,10 +1151,10 @@ namespace RaftTrainer
             GUILayout.Space(4);
             GUILayout.Label("<b>Направление дрейфа:</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("⬆ Сев", actionBtnStyle, GUILayout.Height(18))) SetRaftDriftDirection(Vector3.forward, "Север");
-            if (GUILayout.Button("⬇ Юг", actionBtnStyle, GUILayout.Height(18))) SetRaftDriftDirection(Vector3.back, "Юг");
-            if (GUILayout.Button("⬅ Зап", actionBtnStyle, GUILayout.Height(18))) SetRaftDriftDirection(Vector3.left, "Запад");
-            if (GUILayout.Button("➡ Вост", actionBtnStyle, GUILayout.Height(18))) SetRaftDriftDirection(Vector3.right, "Восток");
+            if (GUILayout.Button("⬆ Сев", actionBtnStyle, OptHeight18)) SetRaftDriftDirection(Vector3.forward, "Север");
+            if (GUILayout.Button("⬇ Юг", actionBtnStyle, OptHeight18)) SetRaftDriftDirection(Vector3.back, "Юг");
+            if (GUILayout.Button("⬅ Зап", actionBtnStyle, OptHeight18)) SetRaftDriftDirection(Vector3.left, "Запад");
+            if (GUILayout.Button("➡ Вост", actionBtnStyle, OptHeight18)) SetRaftDriftDirection(Vector3.right, "Восток");
             GUILayout.EndHorizontal();
         }
 
@@ -1191,32 +1196,32 @@ namespace RaftTrainer
             }
 
             GUILayout.Space(6);
-            if (GUILayout.Button("🏆 Откопать все клады", actionBtnAmberStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🏆 Откопать все клады", actionBtnAmberStyle, OptHeight22))
             {
                 UnearthAllTreasures();
             }
 
-            if (GUILayout.Button("🐑 Собрать всё со скота", actionBtnGreenStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🐑 Собрать всё со скота", actionBtnGreenStyle, OptHeight22))
             {
                 CollectAllDomesticYield(ComponentManager<Network_Player>.Value);
             }
 
-            if (GUILayout.Button("💧 Полить все грядки", actionBtnBlueStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("💧 Полить все грядки", actionBtnBlueStyle, OptHeight22))
             {
                 WaterAllCrops();
             }
 
-            if (GUILayout.Button("🌱 Моментальный рост растений", actionBtnGreenStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🌱 Моментальный рост растений", actionBtnGreenStyle, OptHeight22))
             {
                 InstantGrowCrops();
             }
 
-            if (GUILayout.Button("🪓 Срубить все деревья", actionBtnAmberStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🪓 Срубить все деревья", actionBtnAmberStyle, OptHeight22))
             {
                 AutoChopAndHarvestAll(ComponentManager<Network_Player>.Value);
             }
 
-            if (GUILayout.Button("📦 Очистить сетки в сумку", actionBtnBlueStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("📦 Очистить сетки в сумку", actionBtnBlueStyle, OptHeight22))
             {
                 EmptyAllCollectionNets();
             }
@@ -1244,16 +1249,16 @@ namespace RaftTrainer
             GUILayout.Space(6);
             GUILayout.Label("<b>Время суток:</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("☀ День", actionBtnStyle, GUILayout.Height(18))) SetGameTime(12);
-            if (GUILayout.Button("🌙 Ночь", actionBtnStyle, GUILayout.Height(18))) SetGameTime(0);
+            if (GUILayout.Button("☀ День", actionBtnStyle, OptHeight18)) SetGameTime(12);
+            if (GUILayout.Button("🌙 Ночь", actionBtnStyle, OptHeight18)) SetGameTime(0);
             GUILayout.EndHorizontal();
 
             GUILayout.Space(4);
             GUILayout.Label("<b>Погода:</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Ясно", actionBtnStyle, GUILayout.Height(18))) SetWeather("Calm");
-            if (GUILayout.Button("Дождь", actionBtnStyle, GUILayout.Height(18))) SetWeather("Rain");
-            if (GUILayout.Button("Шторм", actionBtnStyle, GUILayout.Height(18))) SetWeather("Storm");
+            if (GUILayout.Button("Ясно", actionBtnStyle, OptHeight18)) SetWeather("Calm");
+            if (GUILayout.Button("Дождь", actionBtnStyle, OptHeight18)) SetWeather("Rain");
+            if (GUILayout.Button("Шторм", actionBtnStyle, OptHeight18)) SetWeather("Storm");
             GUILayout.EndHorizontal();
 
             stormMode = DrawModuleToggle("Режим Шторма (бесконечный)", stormMode);
@@ -1261,9 +1266,9 @@ namespace RaftTrainer
             GUILayout.Space(4);
             GUILayout.Label("<b>Скорость мира:</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("1.0x", actionBtnGreenStyle, GUILayout.Height(18))) Time.timeScale = 1.0f;
-            if (GUILayout.Button("2.0x", actionBtnStyle, GUILayout.Height(18))) Time.timeScale = 2.0f;
-            if (GUILayout.Button("5.0x", actionBtnBlueStyle, GUILayout.Height(18))) Time.timeScale = 5.0f;
+            if (GUILayout.Button("1.0x", actionBtnGreenStyle, OptHeight18)) Time.timeScale = 1.0f;
+            if (GUILayout.Button("2.0x", actionBtnStyle, OptHeight18)) Time.timeScale = 2.0f;
+            if (GUILayout.Button("5.0x", actionBtnBlueStyle, OptHeight18)) Time.timeScale = 5.0f;
             GUILayout.EndHorizontal();
 
             fastNight = DrawModuleToggle("Быстрая ночь (ускорять только ночь)", fastNight);
@@ -1275,13 +1280,13 @@ namespace RaftTrainer
 
             GUILayout.Space(6);
             GUILayout.Label("<b>ГЕНЕРАТОР ОСТРОВОВ:</b>", subLabelStyle);
-            if (GUILayout.Button("🌴 Тропический Большой", actionBtnStyle, GUILayout.Height(18))) SpawnIslandBiome(ChunkPointType.Landmark_Big, "Тропики");
-            if (GUILayout.Button("✈ Самолет (Пилот)", actionBtnStyle, GUILayout.Height(18))) SpawnIslandBiome(ChunkPointType.Landmark_Pilot, "Самолет");
-            if (GUILayout.Button("🚢 Кораблекрушение", actionBtnStyle, GUILayout.Height(18))) SpawnIslandBiome(ChunkPointType.Landmark_Boat, "Корабль");
-            if (GUILayout.Button("🐻 Бальбоа (Сосны)", actionBtnStyle, GUILayout.Height(18))) SpawnIslandBiome(ChunkPointType.Landmark_Balboa, "Бальбоа");
-            if (GUILayout.Button("🏜 Караван-Таун", actionBtnStyle, GUILayout.Height(18))) SpawnIslandBiome(ChunkPointType.Landmark_CaravanIsland, "Караван");
-            if (GUILayout.Button("🏙 Тангароа (Город)", actionBtnStyle, GUILayout.Height(18))) SpawnIslandBiome(ChunkPointType.Landmark_Tangaroa, "Тангароа");
-            if (GUILayout.Button("❄ Темперанс (Снег)", actionBtnStyle, GUILayout.Height(18))) SpawnIslandBiome(ChunkPointType.Landmark_Temperance, "Темперанс");
+            if (GUILayout.Button("🌴 Тропический Большой", actionBtnStyle, OptHeight18)) SpawnIslandBiome(ChunkPointType.Landmark_Big, "Тропики");
+            if (GUILayout.Button("✈ Самолет (Пилот)", actionBtnStyle, OptHeight18)) SpawnIslandBiome(ChunkPointType.Landmark_Pilot, "Самолет");
+            if (GUILayout.Button("🚢 Кораблекрушение", actionBtnStyle, OptHeight18)) SpawnIslandBiome(ChunkPointType.Landmark_Boat, "Корабль");
+            if (GUILayout.Button("🐻 Бальбоа (Сосны)", actionBtnStyle, OptHeight18)) SpawnIslandBiome(ChunkPointType.Landmark_Balboa, "Бальбоа");
+            if (GUILayout.Button("🏜 Караван-Таун", actionBtnStyle, OptHeight18)) SpawnIslandBiome(ChunkPointType.Landmark_CaravanIsland, "Караван");
+            if (GUILayout.Button("🏙 Тангароа (Город)", actionBtnStyle, OptHeight18)) SpawnIslandBiome(ChunkPointType.Landmark_Tangaroa, "Тангароа");
+            if (GUILayout.Button("❄ Темперанс (Снег)", actionBtnStyle, OptHeight18)) SpawnIslandBiome(ChunkPointType.Landmark_Temperance, "Темперанс");
         }
 
         // ==========================================
@@ -1328,7 +1333,7 @@ namespace RaftTrainer
 
             GUILayout.Space(8);
             GUILayout.Label("<b>МАКРО-РУТИНА (клавиша F7):</b>", subLabelStyle);
-            if (GUILayout.Button("▶ Запустить макро", actionBtnAmberStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("▶ Запустить макро", actionBtnAmberStyle, OptHeight22))
             {
                 StartMacro();
             }
@@ -1350,9 +1355,9 @@ namespace RaftTrainer
             profileName = GUILayout.TextField(profileName, searchBoxStyle, GUILayout.Height(22));
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("💾 Сохранить профиль", actionBtnGreenStyle, GUILayout.Height(22))) SaveProfileFile(profileName);
-            if (GUILayout.Button("📂 Загрузить", actionBtnBlueStyle, GUILayout.Height(22))) LoadProfileFile(profileName);
-            if (GUILayout.Button("⟲ Обновить", actionBtnStyle, GUILayout.Height(22))) profileListCache = ListProfileFiles();
+            if (GUILayout.Button("💾 Сохранить профиль", actionBtnGreenStyle, OptHeight22)) SaveProfileFile(profileName);
+            if (GUILayout.Button("📂 Загрузить", actionBtnBlueStyle, OptHeight22)) LoadProfileFile(profileName);
+            if (GUILayout.Button("⟲ Обновить", actionBtnStyle, OptHeight22)) profileListCache = ListProfileFiles();
             GUILayout.EndHorizontal();
 
             if (profileListCache != null && profileListCache.Length > 0)
@@ -1421,7 +1426,7 @@ namespace RaftTrainer
             GUILayout.Space(6);
             GUILayout.Label("<b>ФОТО-РЕЖИМ:</b>", subLabelStyle);
             photoMode = DrawModuleToggle("Фото-режим (скрыть ESP и HUD)", photoMode);
-            if (GUILayout.Button("📸 Скриншот без интерфейса", actionBtnPurpleStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("📸 Скриншот без интерфейса", actionBtnPurpleStyle, OptHeight22))
             {
                 TakeScreenshot();
             }
@@ -1435,8 +1440,8 @@ namespace RaftTrainer
             GUILayout.Space(6);
             GUILayout.Label("<b>ЭКСПОРТ / ИМПОРТ ТОЧЕК:</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("⬇ Экспорт точек в файл", actionBtnBlueStyle, GUILayout.Height(22))) ExportWaypoints();
-            if (GUILayout.Button("⬆ Импорт точек", actionBtnGreenStyle, GUILayout.Height(22))) ImportWaypoints();
+            if (GUILayout.Button("⬇ Экспорт точек в файл", actionBtnBlueStyle, OptHeight22)) ExportWaypoints();
+            if (GUILayout.Button("⬆ Импорт точек", actionBtnGreenStyle, OptHeight22)) ImportWaypoints();
             GUILayout.EndHorizontal();
         }
 
@@ -1451,7 +1456,7 @@ namespace RaftTrainer
             for (int i = 0; i < categoryNames.Length; i++)
             {
                 bool isSel = (selectedCategory == i);
-                if (GUILayout.Button(categoryNames[i], isSel ? actionBtnBlueStyle : actionBtnStyle, GUILayout.Height(20)))
+                if (GUILayout.Button(categoryNames[i], isSel ? actionBtnBlueStyle : actionBtnStyle, OptHeight20))
                 {
                     selectedCategory = i;
                     UpdateFilteredCatalog();
@@ -1540,7 +1545,7 @@ namespace RaftTrainer
                 {
                     SpawnItem(selectedItem.UniqueName, 10);
                 }
-                if (GUILayout.Button("Стак", actionBtnPurpleStyle, GUILayout.Height(22)))
+                if (GUILayout.Button("Стак", actionBtnPurpleStyle, OptHeight22))
                 {
                     SpawnItem(selectedItem.UniqueName, stack);
                 }
@@ -1563,16 +1568,16 @@ namespace RaftTrainer
             GUILayout.Space(6);
             GUILayout.Label("<b>Быстрые наборы:</b>", subLabelStyle);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("🎁 Стройка", actionBtnBlueStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🎁 Стройка", actionBtnBlueStyle, OptHeight22))
             {
                 SpawnItem("Plank", 100); SpawnItem("Plastic", 100); SpawnItem("Scrap", 50);
             }
-            if (GUILayout.Button("⚔ Титан", actionBtnGreenStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("⚔ Титан", actionBtnGreenStyle, OptHeight22))
             {
                 SpawnItem("Axe_Titanium", 1); SpawnItem("Hook_Titanium", 1); SpawnItem("Machete", 1);
                 SpawnItem("Backpack_Big", 1); SpawnItem("OxygenBottle", 1); SpawnItem("Flippers", 1);
             }
-            if (GUILayout.Button("🍲 Еда", actionBtnAmberStyle, GUILayout.Height(22)))
+            if (GUILayout.Button("🍲 Еда", actionBtnAmberStyle, OptHeight22))
             {
                 SpawnItem("Cooked_Meat_Big", 10); SpawnItem("WaterBottle", 2); SpawnItem("Catfish", 10);
             }
@@ -1586,7 +1591,7 @@ namespace RaftTrainer
                 GUILayout.Label("Набор " + (i + 1) + ": " + (presetItems[i] != null ? GetItemTitle(presetItems[i]) + " x" + presetAmounts[i] : "пусто"),
                     itemLabelStyle, GUILayout.Width(160), GUILayout.Height(20));
                 if (GUILayout.Button("Запомнить", actionBtnStyle, GUILayout.Height(20))) SaveSpawnPreset(i);
-                if (GUILayout.Button("Выдать", actionBtnGreenStyle, GUILayout.Height(20))) GiveSpawnPreset(i);
+                if (GUILayout.Button("Выдать", actionBtnGreenStyle, OptHeight20)) GiveSpawnPreset(i);
                 GUILayout.EndHorizontal();
             }
 
@@ -1596,7 +1601,7 @@ namespace RaftTrainer
             GUILayout.BeginHorizontal();
             for (int i = 0; i < brushAnimalNames.Length; i++)
             {
-                if (GUILayout.Button(brushAnimalNames[i], brushAnimalIndex == i ? actionBtnBlueStyle : actionBtnStyle, GUILayout.Height(20))) brushAnimalIndex = i;
+                if (GUILayout.Button(brushAnimalNames[i], brushAnimalIndex == i ? actionBtnBlueStyle : actionBtnStyle, OptHeight20)) brushAnimalIndex = i;
             }
             GUILayout.EndHorizontal();
         }
@@ -1607,8 +1612,8 @@ namespace RaftTrainer
         private void DrawLogTab()
         {
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("🗑 Очистить журнал", actionBtnRedStyle, GUILayout.Height(22))) eventLog.Clear();
-            if (GUILayout.Button("Обнулить статистику", actionBtnAmberStyle, GUILayout.Height(22))) ResetSessionStats();
+            if (GUILayout.Button("🗑 Очистить журнал", actionBtnRedStyle, OptHeight22)) eventLog.Clear();
+            if (GUILayout.Button("Обнулить статистику", actionBtnAmberStyle, OptHeight22)) ResetSessionStats();
             GUILayout.EndHorizontal();
 
             GUILayout.Space(4);
@@ -1745,8 +1750,8 @@ namespace RaftTrainer
             }
 
             GUILayout.Space(3);
-            if (GUILayout.Button("🖌 Покрасить блок в прицеле", actionBtnPurpleStyle, GUILayout.Height(22))) PaintBlockUnderCrosshair();
-            if (GUILayout.Button("🎨 Покрасить весь плот (HEX)", actionBtnBlueStyle, GUILayout.Height(22))) PaintWholeRaftCustom();
+            if (GUILayout.Button("🖌 Покрасить блок в прицеле", actionBtnPurpleStyle, OptHeight22)) PaintBlockUnderCrosshair();
+            if (GUILayout.Button("🎨 Покрасить весь плот (HEX)", actionBtnBlueStyle, OptHeight22)) PaintWholeRaftCustom();
         }
 
         // ==========================================

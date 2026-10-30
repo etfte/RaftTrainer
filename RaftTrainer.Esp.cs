@@ -45,8 +45,18 @@ namespace RaftTrainer
         private static readonly Comparison<PickupDistEntry> ItemDistComparison = (a, b) => a.sqrDist.CompareTo(b.sqrDist);
         private static readonly Comparison<EspTag> TagDistComparison = CompareTagsByDistance;
         private static readonly Color BlockDamagedColor = new Color(1f, 0.25f, 0.30f);
+        private static readonly Color BlockDamagedFill = new Color(1f, 0.25f, 0.30f, 0.14f);
+        private static readonly Color BlockDamagedOutline = new Color(1f, 0.25f, 0.30f, 0.90f);
         private static readonly Color BlockHealthyColor = new Color(0.20f, 1f, 0.60f);
+        private static readonly Color BlockHealthyFill = new Color(0.20f, 1f, 0.60f, 0.14f);
+        private static readonly Color BlockHealthyOutline = new Color(0.20f, 1f, 0.60f, 0.90f);
         private static readonly Color BlockSelectedColor = new Color(1f, 0.85f, 0.20f);
+        private static readonly Color BlockSelectedFill = new Color(1f, 0.85f, 0.20f, 0.28f);
+        private static readonly Color BlockSelectedOutline = new Color(1f, 0.85f, 0.20f, 0.90f);
+        private static readonly Color RulerPointAColor = new Color(0.2f, 0.95f, 1f, 1f);
+        private static readonly Color RulerPointBColor = new Color(1f, 0.85f, 0.2f, 1f);
+        private static readonly Color RulerLineColor = new Color(0.2f, 0.95f, 1f, 0.9f);
+        private static Rect outlineRect = new Rect();
         private readonly List<SharkESPInfo> sharkInfoPool = new List<SharkESPInfo>();
         private readonly List<SharkESPInfo> espNameSharkPool = new List<SharkESPInfo>();
 
@@ -346,7 +356,7 @@ namespace RaftTrainer
             if (espRaft && cachedRaft != null)
             {
                 Vector3 rPos = cachedRaft.transform.position + Vector3.up * 2f;
-                AddEspTag(rPos, "ПЛОТ", new Color(0.25f, 0.85f, 1f), 2000f, (rPos - pp).sqrMagnitude);
+                AddEspTag(rPos, "ПЛОТ", TagRaftCol, 2000f, (rPos - pp).sqrMagnitude);
             }
 
             if (espPlayers)
@@ -358,7 +368,7 @@ namespace RaftTrainer
                     string pName = "Игрок";
                     if (p.playerNameTextMesh != null && !string.IsNullOrEmpty(p.playerNameTextMesh.text)) pName = p.playerNameTextMesh.text;
                     Vector3 pPos = p.transform.position + Vector3.up * 1.8f;
-                    AddEspTag(pPos, "ИГРОК " + pName, new Color(0.2f, 1f, 0.4f), 2000f, (pPos - pp).sqrMagnitude);
+                    AddEspTag(pPos, "ИГРОК " + pName, TagPlayerCol, 2000f, (pPos - pp).sqrMagnitude);
                 }
             }
 
@@ -534,10 +544,20 @@ namespace RaftTrainer
                 }
 
                 Rect r = new Rect(sp.x - size * 0.5f, Screen.height - sp.y - size * 0.5f, size, size);
-                GUI.color = new Color(c.r, c.g, c.b, byHealth ? 0.14f : 0.28f);
-                GUI.DrawTexture(r, texWhiteDot);
-                GUI.color = new Color(c.r, c.g, c.b, 0.9f);
-                DrawOutlineRect(r, 1.5f);
+                if (byHealth)
+                {
+                    GUI.color = new Color(c.r, c.g, c.b, 0.14f);
+                    GUI.DrawTexture(r, texWhiteDot);
+                    GUI.color = new Color(c.r, c.g, c.b, 0.9f);
+                    DrawOutlineRect(r, 1.5f);
+                }
+                else
+                {
+                    GUI.color = BlockSelectedFill;
+                    GUI.DrawTexture(r, texWhiteDot);
+                    GUI.color = BlockSelectedOutline;
+                    DrawOutlineRect(r, 1.5f);
+                }
             }
             GUI.color = prev;
         }
@@ -551,7 +571,7 @@ namespace RaftTrainer
             Vector3 spA = cam.WorldToScreenPoint(rulerA);
             if (spA.z > 0.3f)
             {
-                GUI.color = new Color(0.2f, 0.95f, 1f, 1f);
+                GUI.color = RulerPointAColor;
                 GUI.DrawTexture(new Rect(spA.x - 4f, Screen.height - spA.y - 4f, 8f, 8f), texKnob);
             }
 
@@ -560,11 +580,11 @@ namespace RaftTrainer
                 Vector3 spB = cam.WorldToScreenPoint(rulerB);
                 if (spB.z > 0.3f)
                 {
-                    GUI.color = new Color(1f, 0.85f, 0.2f, 1f);
+                    GUI.color = RulerPointBColor;
                     GUI.DrawTexture(new Rect(spB.x - 4f, Screen.height - spB.y - 4f, 8f, 8f), texKnob);
                 }
 
-                GUI.color = new Color(0.2f, 0.95f, 1f, 0.9f);
+                GUI.color = RulerLineColor;
                 for (int i = 0; i <= 24; i++)
                 {
                     Vector3 p = Vector3.Lerp(rulerA, rulerB, i / 24f);
@@ -576,7 +596,7 @@ namespace RaftTrainer
                 Vector3 mid = cam.WorldToScreenPoint((rulerA + rulerB) * 0.5f);
                 if (mid.z > 0.3f)
                 {
-                    DrawEspLabel(mid, Vector3.Distance(rulerA, rulerB).ToString("F2") + " м", new Color(0.2f, 0.95f, 1f));
+                    DrawEspLabel(mid, Vector3.Distance(rulerA, rulerB).ToString("F2") + " м", RulerPointAColor);
                 }
             }
             GUI.color = prev;
@@ -584,10 +604,14 @@ namespace RaftTrainer
 
         private void DrawOutlineRect(Rect r, float t)
         {
-            GUI.DrawTexture(new Rect(r.x, r.y, r.width, t), texWhiteDot);
-            GUI.DrawTexture(new Rect(r.x, r.yMax - t, r.width, t), texWhiteDot);
-            GUI.DrawTexture(new Rect(r.x, r.y, t, r.height), texWhiteDot);
-            GUI.DrawTexture(new Rect(r.xMax - t, r.y, t, r.height), texWhiteDot);
+            outlineRect.x = r.x; outlineRect.y = r.y; outlineRect.width = r.width; outlineRect.height = t;
+            GUI.DrawTexture(outlineRect, texWhiteDot);
+            outlineRect.y = r.yMax - t;
+            GUI.DrawTexture(outlineRect, texWhiteDot);
+            outlineRect.y = r.y; outlineRect.width = t; outlineRect.height = r.height;
+            GUI.DrawTexture(outlineRect, texWhiteDot);
+            outlineRect.x = r.xMax - t;
+            GUI.DrawTexture(outlineRect, texWhiteDot);
         }
 
         private string GetRussianItemName(PickupItem p)

@@ -1986,17 +1986,17 @@ namespace RaftTrainer
 
                 // Отплыть от ближайшего острова/рифа
                 Vector3 away = Vector3.zero;
-                float best = float.MaxValue;
+                float bestSqr = float.MaxValue;
                 Landmark nearest = null;
                 var sources = cachedLandmarks.Count > 0 ? cachedLandmarks : statsLandmarks;
                 for (int i = 0; i < sources.Count; i++)
                 {
                     Landmark lm = sources[i];
                     if (lm == null) continue;
-                    float d = Vector3.Distance(lm.transform.position, raft.transform.position);
-                    if (d < best) { best = d; nearest = lm; }
+                    float dSqr = (lm.transform.position - raft.transform.position).sqrMagnitude;
+                    if (dSqr < bestSqr) { bestSqr = dSqr; nearest = lm; }
                 }
-                if (nearest != null && best < 120f)
+                if (nearest != null && bestSqr < 14400f)
                 {
                     away = raft.transform.position - nearest.transform.position;
                     away.y = 0f;
@@ -2010,8 +2010,8 @@ namespace RaftTrainer
                 if (Time.time > nextAntiStormMsgTime)
                 {
                     nextAntiStormMsgTime = Time.time + 8f;
-                    statusMessage = best < 120f
-                        ? "🌩 Шторм: якорь поднят, отплываем от рифов (" + best.ToString("F0") + " м)"
+                    statusMessage = bestSqr < 14400f
+                        ? "🌩 Шторм: якорь поднят, отплываем от рифов (" + Mathf.Sqrt(bestSqr).ToString("F0") + " м)"
                         : "🌩 Шторм: якорь поднят, плот в открытом море";
                     LogEvent("Анти-шторм активен");
                 }
@@ -2027,8 +2027,8 @@ namespace RaftTrainer
 
             try
             {
-                var fuels = UnityEngine.Object.FindObjectsOfType<Fuel>();
-                var chests = UnityEngine.Object.FindObjectsOfType<Storage_Small>();
+                var fuels = (cachedFuels != null && cachedFuels.Length > 0) ? cachedFuels : UnityEngine.Object.FindObjectsOfType<Fuel>();
+                var chests = (cachedChests != null && cachedChests.Length > 0) ? cachedChests : UnityEngine.Object.FindObjectsOfType<Storage_Small>();
                 int refueled = 0;
 
                 for (int i = 0; i < fuels.Length && refueled < 15; i++)
@@ -2565,6 +2565,9 @@ namespace RaftTrainer
         }
 
         // ---------- ГЛОБАЛЬНАЯ КАРТА ----------
+        private static readonly Color WorldMapGridCol = new Color(1f, 1f, 1f, 0.07f);
+        private static readonly Color WorldMapRingsCol = new Color(0.4f, 0.9f, 1f, 0.14f);
+        private static readonly Color WorldMapNorthCol = new Color(1f, 1f, 0.9f, 0.9f);
         private void DrawWorldMapHud(Camera cam)
         {
             if (!worldMapOn) return;
@@ -2591,7 +2594,7 @@ namespace RaftTrainer
 
                 // Сетка (каждые 200 м)
                 Color prev = GUI.color;
-                GUI.color = new Color(1f, 1f, 1f, 0.07f);
+                GUI.color = WorldMapGridCol;
                 float step = 200f * z;
                 float startX = center.x - Mathf.Ceil(half / step) * step;
                 for (float gx = startX; gx <= panel.xMax; gx += step)
@@ -2603,7 +2606,7 @@ namespace RaftTrainer
                         GUI.DrawTexture(new Rect(panel.x, gy, size, 1f), texWhiteDot);
 
                 // Кольца дистанции 250 / 500 / 1000 м
-                GUI.color = new Color(0.4f, 0.9f, 1f, 0.14f);
+                GUI.color = WorldMapRingsCol;
                 for (int r = 0; r < MapRings.Length; r++)
                 {
                     float rr = MapRings[r] * z;
@@ -2617,7 +2620,7 @@ namespace RaftTrainer
                 // Игрок в центре
                 GUI.color = Color.white;
                 GUI.DrawTexture(new Rect(center.x - 3f, center.y - 3f, 6f, 6f), texKnob);
-                GUI.color = new Color(1f, 1f, 0.9f, 0.9f);
+                GUI.color = WorldMapNorthCol;
                 GUI.Label(new Rect(center.x + 6f, center.y + 4f, 14f, 14f), "С", hudTextStyle);
                 GUI.color = prev;
             }

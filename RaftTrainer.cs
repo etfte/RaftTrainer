@@ -206,6 +206,20 @@ namespace RaftTrainer
         private float nextMachineryScanFullTime = 0f;
         private BatteryCharger[] cachedChargers = null;
         private float nextChargersScanTime = 0f;
+        private Throwable_Object[] cachedThrowables = null;
+        private float nextThrowablesScanTime = 0f;
+        private Seagull[] cachedSeagulls = null;
+        private float nextSeagullsScanTime = 0f;
+        private ThrowableComponent_NetGun[] cachedNetGuns = null;
+        private float nextNetGunsScanTime = 0f;
+        private ThrowableComponent_Bow[] cachedBows = null;
+        private float nextBowsScanTime = 0f;
+        private Sprinkler[] cachedSprinklers = null;
+        private float nextSprinklersScanTime = 0f;
+        private MetalDetector[] cachedDetectors = null;
+        private float nextDetectorsScanTime = 0f;
+        private LightNightNDayToggler[] cachedLights = null;
+        private float nextLightsScanTime = 0f;
 
         // PLAYER & CRAFTING
         public bool godMode = true;
@@ -818,7 +832,12 @@ namespace RaftTrainer
         {
             try
             {
-                var bows = UnityEngine.Object.FindObjectsOfType<ThrowableComponent_Bow>();
+                if (cachedBows == null || Time.time > nextBowsScanTime)
+                {
+                    nextBowsScanTime = Time.time + 3.0f;
+                    cachedBows = UnityEngine.Object.FindObjectsOfType<ThrowableComponent_Bow>();
+                }
+                var bows = cachedBows != null ? cachedBows : new ThrowableComponent_Bow[0];
                 for (int i = 0; i < bows.Length; i++)
                 {
                     var bow = bows[i];
@@ -865,7 +884,12 @@ namespace RaftTrainer
         {
             try
             {
-                var guns = UnityEngine.Object.FindObjectsOfType<ThrowableComponent_NetGun>();
+                if (cachedNetGuns == null || Time.time > nextNetGunsScanTime)
+                {
+                    nextNetGunsScanTime = Time.time + 3.0f;
+                    cachedNetGuns = UnityEngine.Object.FindObjectsOfType<ThrowableComponent_NetGun>();
+                }
+                var guns = cachedNetGuns != null ? cachedNetGuns : new ThrowableComponent_NetGun[0];
                 for (int i = 0; i < guns.Length; i++)
                 {
                     var gun = guns[i];
@@ -1397,7 +1421,7 @@ namespace RaftTrainer
                 for (int i = 0; i < filters.Length; i++)
                 {
                     var f = filters[i];
-                    if (f == null || !f.enabled || Vector3.Distance(f.transform.position, pp) > 140f) continue;
+                    if (f == null || !f.enabled || (f.transform.position - pp).sqrMagnitude > 19600f) continue;
                     f.enabled = false;
                     mutedLowPass.Add(f);
                 }
@@ -2058,7 +2082,12 @@ namespace RaftTrainer
                     }
                 }
 
-                var throwables = UnityEngine.Object.FindObjectsOfType<Throwable_Object>();
+                if (cachedThrowables == null || Time.time > nextThrowablesScanTime)
+                {
+                    nextThrowablesScanTime = Time.time + 0.5f;
+                    cachedThrowables = UnityEngine.Object.FindObjectsOfType<Throwable_Object>();
+                }
+                var throwables = cachedThrowables != null ? cachedThrowables : new Throwable_Object[0];
                 for (int i = 0; i < throwables.Length; i++)
                 {
                     var to = throwables[i];
@@ -2103,7 +2132,12 @@ namespace RaftTrainer
         {
             try
             {
-                var gulls = UnityEngine.Object.FindObjectsOfType<Seagull>();
+                if (cachedSeagulls == null || Time.time > nextSeagullsScanTime)
+                {
+                    nextSeagullsScanTime = Time.time + 1.5f;
+                    cachedSeagulls = UnityEngine.Object.FindObjectsOfType<Seagull>();
+                }
+                var gulls = cachedSeagulls != null ? cachedSeagulls : new Seagull[0];
                 for (int i = 0; i < gulls.Length; i++)
                 {
                     var g = gulls[i];
@@ -2115,7 +2149,12 @@ namespace RaftTrainer
                     }
                 }
 
-                var plots = UnityEngine.Object.FindObjectsOfType<Cropplot>();
+                if (cachedCropplots == null || Time.time > nextCropplotsScanTime)
+                {
+                    nextCropplotsScanTime = Time.time + 3.0f;
+                    cachedCropplots = UnityEngine.Object.FindObjectsOfType<Cropplot>();
+                }
+                var plots = cachedCropplots != null ? cachedCropplots : new Cropplot[0];
                 for (int i = 0; i < plots.Length; i++)
                 {
                     var cp = plots[i];
@@ -3632,7 +3671,7 @@ namespace RaftTrainer
             try
             {
                 if (player == null || player.Inventory == null) return;
-                var storages = UnityEngine.Object.FindObjectsOfType<Storage_Small>();
+                var storages = (cachedChests != null && cachedChests.Length > 0) ? cachedChests : UnityEngine.Object.FindObjectsOfType<Storage_Small>();
                 Vector3 pPos = player.transform.position;
                 int stashCount = 0;
 
@@ -3640,7 +3679,7 @@ namespace RaftTrainer
                 {
                     var storage = storages[s];
                     if (storage == null) continue;
-                    if (Vector3.Distance(storage.transform.position, pPos) > 25f) continue;
+                    if ((storage.transform.position - pPos).sqrMagnitude > 625f) continue;
 
                     var inv = storage.GetInventoryReference();
                     if (inv == null) continue;
@@ -3662,7 +3701,11 @@ namespace RaftTrainer
         {
             try
             {
-                var tanks = UnityEngine.Object.FindObjectsOfType<Tank>();
+                if (cachedTanks == null || Time.time > nextMachineryScanFullTime)
+                {
+                    RefreshMachineryCache();
+                }
+                var tanks = cachedTanks != null ? cachedTanks : new Tank[0];
                 for (int i = 0; i < tanks.Length; i++)
                 {
                     var t = tanks[i];
@@ -3670,7 +3713,12 @@ namespace RaftTrainer
                     t.SetTankAmount(t.maxCapacity);
                 }
 
-                var sprinklers = UnityEngine.Object.FindObjectsOfType<Sprinkler>();
+                if (cachedSprinklers == null || Time.time > nextSprinklersScanTime)
+                {
+                    nextSprinklersScanTime = Time.time + 3.0f;
+                    cachedSprinklers = UnityEngine.Object.FindObjectsOfType<Sprinkler>();
+                }
+                var sprinklers = cachedSprinklers != null ? cachedSprinklers : new Sprinkler[0];
                 for (int i = 0; i < sprinklers.Length; i++)
                 {
                     var sp = sprinklers[i];
@@ -3814,7 +3862,12 @@ namespace RaftTrainer
         {
             try
             {
-                var detectors = UnityEngine.Object.FindObjectsOfType<MetalDetector>();
+                if (cachedDetectors == null || Time.time > nextDetectorsScanTime)
+                {
+                    nextDetectorsScanTime = Time.time + 3.0f;
+                    cachedDetectors = UnityEngine.Object.FindObjectsOfType<MetalDetector>();
+                }
+                var detectors = cachedDetectors != null ? cachedDetectors : new MetalDetector[0];
                 for (int i = 0; i < detectors.Length; i++)
                 {
                     var md = detectors[i];
@@ -3979,7 +4032,12 @@ namespace RaftTrainer
         {
             try
             {
-                var fuels = UnityEngine.Object.FindObjectsOfType<Fuel>();
+                if (cachedFuels == null || Time.time > nextFuelsScanTime)
+                {
+                    nextFuelsScanTime = Time.time + 3.0f;
+                    cachedFuels = UnityEngine.Object.FindObjectsOfType<Fuel>();
+                }
+                var fuels = cachedFuels != null ? cachedFuels : new Fuel[0];
                 for (int i = 0; i < fuels.Length; i++)
                 {
                     var f = fuels[i];
@@ -3988,7 +4046,12 @@ namespace RaftTrainer
                     if (!f.IsBurning()) f.StartBurning();
                 }
 
-                var lights = UnityEngine.Object.FindObjectsOfType<LightNightNDayToggler>();
+                if (cachedLights == null || Time.time > nextLightsScanTime)
+                {
+                    nextLightsScanTime = Time.time + 4.0f;
+                    cachedLights = UnityEngine.Object.FindObjectsOfType<LightNightNDayToggler>();
+                }
+                var lights = cachedLights != null ? cachedLights : new LightNightNDayToggler[0];
                 for (int i = 0; i < lights.Length; i++)
                 {
                     var l = lights[i];
