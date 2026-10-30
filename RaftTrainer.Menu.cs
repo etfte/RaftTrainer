@@ -579,7 +579,7 @@ namespace RaftTrainer
             EnsureToggleCaches();
             if (profileBoolFields == null) { GUILayout.Label("Инициализация...", subLabelStyle); return; }
 
-            string q = globalSearch.Trim().ToLower();
+            string q = globalSearch.Trim();
             GUILayout.Label("<b>Результаты по всем разделам:</b>", subLabelStyle);
             GUILayout.Space(2);
 
@@ -588,8 +588,7 @@ namespace RaftTrainer
             {
                 FieldInfo f = profileBoolFields[i];
                 string label = GetFeatureLabel(f.Name);
-                string low = label.ToLower();
-                if (!low.Contains(q) && !f.Name.ToLower().Contains(q)) continue;
+                if (!ContainsIgnoreCase(label, q) && !ContainsIgnoreCase(f.Name, q)) continue;
                 DrawRefToggle(f, label);
                 found++;
                 if (found >= 40) break;
@@ -616,7 +615,7 @@ namespace RaftTrainer
 
         private bool DrawModuleToggle(string title, bool currentVal)
         {
-            if (!string.IsNullOrEmpty(globalSearch) && !title.ToLower().Contains(globalSearch.ToLower()))
+            if (!string.IsNullOrEmpty(globalSearch) && !ContainsIgnoreCase(title, globalSearch))
             {
                 return currentVal;
             }

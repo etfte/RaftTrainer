@@ -81,6 +81,10 @@ namespace RaftTrainer
         private readonly List<EspTag> cropTagsPool = new List<EspTag>();
         private readonly List<TeammateInfo> teammatePool = new List<TeammateInfo>();
         private readonly List<TrailPoint> trailPointPool = new List<TrailPoint>();
+        private string lastTrashKeywordsRaw = null;
+        private readonly List<string> cachedTrashKeywords = new List<string>();
+        private readonly List<string> autoTrashNames = new List<string>();
+        private readonly List<int> autoTrashAmounts = new List<int>();
         private FishingBaitHandler cachedBaitHandler = null;
         private string cachedMapScaleStr = "";
         private float lastMapScaleZoom = -1f;
@@ -764,11 +768,11 @@ namespace RaftTrainer
         {
             try
             {
-                WeatherManager wm = UnityEngine.Object.FindObjectOfType<WeatherManager>();
+                WeatherManager wm = cachedWeather != null ? cachedWeather : UnityEngine.Object.FindObjectOfType<WeatherManager>();
                 if (wm == null) return;
                 string cur = "";
                 try { cur = wm.GetCurrentWeatherType().ToString(); } catch {}
-                if (!cur.ToLower().Contains("storm")) wm.SetWeather("Storm", false);
+                if (!ContainsIgnoreCase(cur, "storm")) wm.SetWeather("Storm", false);
             }
             catch {}
         }
@@ -804,42 +808,48 @@ namespace RaftTrainer
             if (player == null || player.Inventory == null) return;
             try
             {
-                string raw = trashKeywords.ToLower();
-                string[] parts = raw.Split(',');
-                List<string> keys = new List<string>();
-                for (int i = 0; i < parts.Length; i++)
+                if (trashKeywords != lastTrashKeywordsRaw || lastTrashKeywordsRaw == null)
                 {
-                    string k = parts[i].Trim();
-                    if (k.Length > 0) keys.Add(k);
+                    lastTrashKeywordsRaw = trashKeywords;
+                    cachedTrashKeywords.Clear();
+                    string[] parts = trashKeywords.Split(',');
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        string k = parts[i].Trim();
+                        if (k.Length > 0) cachedTrashKeywords.Add(k);
+                    }
                 }
-                if (keys.Count == 0) return;
+                if (cachedTrashKeywords.Count == 0) return;
 
                 Inventory inv = player.Inventory;
                 if (inv.allSlots == null) return;
 
-                List<string> names = new List<string>();
-                List<int> amounts = new List<int>();
-                for (int i = 0; i < inv.allSlots.Count; i++)
+                autoTrashNames.Clear();
+                autoTrashAmounts.Clear();
+                int sCount = inv.allSlots.Count;
+                int kCount = cachedTrashKeywords.Count;
+                for (int i = 0; i < sCount; i++)
                 {
                     Slot s = inv.allSlots[i];
                     if (s == null || !s.HasValidItemInstance() || s.itemInstance.baseItem == null) continue;
-                    string un = s.itemInstance.baseItem.UniqueName.ToLower();
-                    for (int k = 0; k < keys.Count; k++)
+                    string un = s.itemInstance.baseItem.UniqueName;
+                    for (int k = 0; k < kCount; k++)
                     {
-                        if (un.Contains(keys[k]))
+                        if (ContainsIgnoreCase(un, cachedTrashKeywords[k]))
                         {
-                            names.Add(s.itemInstance.baseItem.UniqueName);
-                            amounts.Add(s.itemInstance.Amount);
+                            autoTrashNames.Add(un);
+                            autoTrashAmounts.Add(s.itemInstance.Amount);
                             break;
                         }
                     }
                 }
 
                 int removed = 0;
-                for (int i = 0; i < names.Count; i++)
+                int remCount = autoTrashNames.Count;
+                for (int i = 0; i < remCount; i++)
                 {
-                    inv.RemoveItem(names[i], amounts[i]);
-                    removed += amounts[i];
+                    inv.RemoveItem(autoTrashNames[i], autoTrashAmounts[i]);
+                    removed += autoTrashAmounts[i];
                 }
                 if (removed > 0)
                 {
@@ -1468,10 +1478,9 @@ namespace RaftTrainer
         private static string TranslateWeather(string raw)
         {
             if (string.IsNullOrEmpty(raw)) return "—";
-            string low = raw.ToLower();
-            if (low.Contains("calm") || low.Contains("clear") || low.Contains("sun")) return "Ясно";
-            if (low.Contains("rain")) return "Дождь";
-            if (low.Contains("storm")) return "Шторм";
+            if (ContainsIgnoreCase(raw, "calm") || ContainsIgnoreCase(raw, "clear") || ContainsIgnoreCase(raw, "sun")) return "Ясно";
+            if (ContainsIgnoreCase(raw, "rain")) return "Дождь";
+            if (ContainsIgnoreCase(raw, "storm")) return "Шторм";
             return raw;
         }
 
@@ -1849,20 +1858,19 @@ namespace RaftTrainer
                 {
                     Fuel f = fuels[i];
                     if (f == null) continue;
-                    string n = f.transform.root != null ? f.transform.root.name.ToLower() : "";
-                    if (n.Length == 0) n = f.name.ToLower();
+                    string n = f.transform.root != null ? f.transform.root.name : f.name;
                     int fuel = 0, max = 0;
                     bool burning = false;
                     try { fuel = f.GetFuelCount(); } catch {}
                     try { max = f.MaxFuel; } catch {}
                     try { burning = f.IsBurning(); } catch {}
 
-                    if (n.Contains("engine"))
+                    if (ContainsIgnoreCase(n, "engine"))
                     {
                         enginesCount++; enginesFuel += fuel; enginesFuelMax += max;
                         if (burning) enginesBurning++;
                     }
-                    else if (n.Contains("smelt"))
+                    else if (ContainsIgnoreCase(n, "smelt"))
                     {
                         smeltersCount++; smeltersFuel += fuel; smeltersFuelMax += max;
                     }
@@ -1902,11 +1910,11 @@ namespace RaftTrainer
                 try
                 {
                     if (cachedWeather != null)
-                        storm = cachedWeather.GetCurrentWeatherType().ToString().ToLower().Contains("storm");
+                        storm = ContainsIgnoreCase(cachedWeather.GetCurrentWeatherType().ToString(), "storm");
                 }
                 catch {}
 
-                Raft raft = ComponentManager<Raft>.Value;
+                Raft raft = cachedRaft != null ? cachedRaft : ComponentManager<Raft>.Value;
                 if (!storm || raft == null) return;
 
                 // Поднять якорь, если брошен
@@ -2241,40 +2249,42 @@ namespace RaftTrainer
 
         private bool IsPickupAllowed(PickupItem p)
         {
+            if (p == null) return false;
             ParseBlacklist();
-            if (lootBlacklistCache.Count > 0)
+            int bCount = lootBlacklistCache.Count;
+            if (bCount > 0)
             {
-                string low = p.name.ToLower();
-                for (int i = 0; i < lootBlacklistCache.Count; i++)
-                    if (low.Contains(lootBlacklistCache[i])) return false;
+                string pName = p.name;
+                for (int i = 0; i < bCount; i++)
+                    if (ContainsIgnoreCase(pName, lootBlacklistCache[i])) return false;
             }
 
             if (!lootFilterFood && !lootFilterMetal && !lootFilterRare) return true;
 
-            string rus = GetRussianItemName(p).ToLower();
-            string raw = p.name.ToLower();
+            string rus = GetRussianItemName(p);
+            string raw = p.name;
 
             if (lootFilterFood &&
-                (raw.Contains("potato") || raw.Contains("beet") || raw.Contains("meat") || raw.Contains("fish")
-                 || raw.Contains("mango") || raw.Contains("coconut") || raw.Contains("watermelon")
-                 || raw.Contains("pineapple") || raw.Contains("mushroom") || raw.Contains("egg")
-                 || rus.Contains("картофел") || rus.Contains("свекл") || rus.Contains("мясо") || rus.Contains("рыб")
-                 || rus.Contains("манго") || rus.Contains("кокос") || rus.Contains("арбуз") || rus.Contains("ананас")
-                 || rus.Contains("гриб") || rus.Contains("яйц"))) return true;
+                (ContainsIgnoreCase(raw, "potato") || ContainsIgnoreCase(raw, "beet") || ContainsIgnoreCase(raw, "meat") || ContainsIgnoreCase(raw, "fish")
+                 || ContainsIgnoreCase(raw, "mango") || ContainsIgnoreCase(raw, "coconut") || ContainsIgnoreCase(raw, "watermelon")
+                 || ContainsIgnoreCase(raw, "pineapple") || ContainsIgnoreCase(raw, "mushroom") || ContainsIgnoreCase(raw, "egg")
+                 || ContainsIgnoreCase(rus, "картофел") || ContainsIgnoreCase(rus, "свекл") || ContainsIgnoreCase(rus, "мясо") || ContainsIgnoreCase(rus, "рыб")
+                 || ContainsIgnoreCase(rus, "манго") || ContainsIgnoreCase(rus, "кокос") || ContainsIgnoreCase(rus, "арбуз") || ContainsIgnoreCase(rus, "ананас")
+                 || ContainsIgnoreCase(rus, "гриб") || ContainsIgnoreCase(rus, "яйц"))) return true;
 
             if (lootFilterMetal &&
-                (raw.Contains("ore") || raw.Contains("ingot") || raw.Contains("scrap") || raw.Contains("metal")
-                 || raw.Contains("nail") || raw.Contains("bolt") || raw.Contains("hinge") || raw.Contains("plank")
-                 || raw.Contains("plastic") || raw.Contains("vine") || raw.Contains("stone") || raw.Contains("clay")
-                 || raw.Contains("sand") || raw.Contains("dirt") || rus.Contains("руда") || rus.Contains("слиток")
-                 || rus.Contains("хлам") || rus.Contains("металл") || rus.Contains("доск") || rus.Contains("пластик")
-                 || rus.Contains("гвоздь") || rus.Contains("болт") || rus.Contains("петл") || rus.Contains("камень")
-                 || rus.Contains("глин") || rus.Contains("песок") || rus.Contains("земл"))) return true;
+                (ContainsIgnoreCase(raw, "ore") || ContainsIgnoreCase(raw, "ingot") || ContainsIgnoreCase(raw, "scrap") || ContainsIgnoreCase(raw, "metal")
+                 || ContainsIgnoreCase(raw, "nail") || ContainsIgnoreCase(raw, "bolt") || ContainsIgnoreCase(raw, "hinge") || ContainsIgnoreCase(raw, "plank")
+                 || ContainsIgnoreCase(raw, "plastic") || ContainsIgnoreCase(raw, "vine") || ContainsIgnoreCase(raw, "stone") || ContainsIgnoreCase(raw, "clay")
+                 || ContainsIgnoreCase(raw, "sand") || ContainsIgnoreCase(raw, "dirt") || ContainsIgnoreCase(rus, "руда") || ContainsIgnoreCase(rus, "слиток")
+                 || ContainsIgnoreCase(rus, "хлам") || ContainsIgnoreCase(rus, "металл") || ContainsIgnoreCase(rus, "доск") || ContainsIgnoreCase(rus, "пластик")
+                 || ContainsIgnoreCase(rus, "гвоздь") || ContainsIgnoreCase(rus, "болт") || ContainsIgnoreCase(rus, "петл") || ContainsIgnoreCase(rus, "камень")
+                 || ContainsIgnoreCase(rus, "глин") || ContainsIgnoreCase(rus, "песок") || ContainsIgnoreCase(rus, "земл"))) return true;
 
             if (lootFilterRare &&
-                (raw.Contains("titanium") || raw.Contains("explosive") || raw.Contains("vinegoo")
-                 || raw.Contains("battery") || raw.Contains("circuit") || rus.Contains("титан")
-                 || rus.Contains("взрывчатк") || rus.Contains("клей") || rus.Contains("батаре"))) return true;
+                (ContainsIgnoreCase(raw, "titanium") || ContainsIgnoreCase(raw, "explosive") || ContainsIgnoreCase(raw, "vinegoo")
+                 || ContainsIgnoreCase(raw, "battery") || ContainsIgnoreCase(raw, "circuit") || ContainsIgnoreCase(rus, "титан")
+                 || ContainsIgnoreCase(rus, "взрывчатк") || ContainsIgnoreCase(rus, "клей") || ContainsIgnoreCase(rus, "батаре"))) return true;
 
             return false;
         }
@@ -2823,14 +2833,16 @@ namespace RaftTrainer
                 Item_Base seed = null;
                 if (player.Inventory.allSlots != null)
                 {
-                    for (int i = 0; i < player.Inventory.allSlots.Count && seed == null; i++)
+                    int slotCount = player.Inventory.allSlots.Count;
+                    int pkCount = plantKeywordsCache.Length;
+                    for (int i = 0; i < slotCount && seed == null; i++)
                     {
                         Slot s = player.Inventory.allSlots[i];
                         if (s == null || !s.HasValidItemInstance() || s.itemInstance == null || s.itemInstance.baseItem == null) continue;
-                        string un = s.itemInstance.baseItem.UniqueName.ToLower();
-                        for (int k = 0; k < plantKeywordsCache.Length; k++)
+                        string un = s.itemInstance.baseItem.UniqueName;
+                        for (int k = 0; k < pkCount; k++)
                         {
-                            if (un.Contains(plantKeywordsCache[k])) { seed = s.itemInstance.baseItem; break; }
+                            if (ContainsIgnoreCase(un, plantKeywordsCache[k])) { seed = s.itemInstance.baseItem; break; }
                         }
                     }
                 }
@@ -2916,7 +2928,7 @@ namespace RaftTrainer
                     FishingBaitHandler bait = cachedBaitHandler;
                     if (bait != null)
                     {
-                        Item_Base want = FindBaitInInventory(player, baitKeyword.ToLower());
+                        Item_Base want = FindBaitInInventory(player, baitKeyword);
                         if (want != null)
                         {
                             Item_Base cur = null;
@@ -2949,11 +2961,12 @@ namespace RaftTrainer
             try
             {
                 if (player.Inventory == null || player.Inventory.allSlots == null) return null;
-                for (int i = 0; i < player.Inventory.allSlots.Count; i++)
+                int sCount = player.Inventory.allSlots.Count;
+                for (int i = 0; i < sCount; i++)
                 {
                     Slot s = player.Inventory.allSlots[i];
                     if (s == null || !s.HasValidItemInstance() || s.itemInstance == null || s.itemInstance.baseItem == null) continue;
-                    if (s.itemInstance.baseItem.UniqueName.ToLower().Contains(keyword)) return s.itemInstance.baseItem;
+                    if (ContainsIgnoreCase(s.itemInstance.baseItem.UniqueName, keyword)) return s.itemInstance.baseItem;
                 }
             }
             catch {}
@@ -2987,30 +3000,31 @@ namespace RaftTrainer
         // ---------- ФИЛЬТР МАГНИТА ----------
         private bool IsMagnetAllowed(PickupItem p)
         {
+            if (p == null) return false;
             if (!magnetOnlyFood && !magnetOnlyMetal && !magnetOnlyRare) return true;
 
-            string rus = GetRussianItemName(p).ToLower();
-            string raw = p.name.ToLower();
+            string rus = GetRussianItemName(p);
+            string raw = p.name;
 
             if (magnetOnlyFood &&
-                (raw.Contains("potato") || raw.Contains("beet") || raw.Contains("meat") || raw.Contains("fish")
-                 || raw.Contains("mango") || raw.Contains("coconut") || raw.Contains("watermelon")
-                 || raw.Contains("pineapple") || raw.Contains("mushroom") || raw.Contains("egg")
-                 || rus.Contains("картофел") || rus.Contains("свекл") || rus.Contains("мясо") || rus.Contains("рыб")
-                 || rus.Contains("манго") || rus.Contains("кокос") || rus.Contains("арбуз") || rus.Contains("ананас")
-                 || rus.Contains("гриб") || rus.Contains("яйц"))) return true;
+                (ContainsIgnoreCase(raw, "potato") || ContainsIgnoreCase(raw, "beet") || ContainsIgnoreCase(raw, "meat") || ContainsIgnoreCase(raw, "fish")
+                 || ContainsIgnoreCase(raw, "mango") || ContainsIgnoreCase(raw, "coconut") || ContainsIgnoreCase(raw, "watermelon")
+                 || ContainsIgnoreCase(raw, "pineapple") || ContainsIgnoreCase(raw, "mushroom") || ContainsIgnoreCase(raw, "egg")
+                 || ContainsIgnoreCase(rus, "картофел") || ContainsIgnoreCase(rus, "свекл") || ContainsIgnoreCase(rus, "мясо") || ContainsIgnoreCase(rus, "рыб")
+                 || ContainsIgnoreCase(rus, "манго") || ContainsIgnoreCase(rus, "кокос") || ContainsIgnoreCase(rus, "арбуз") || ContainsIgnoreCase(rus, "ананас")
+                 || ContainsIgnoreCase(rus, "гриб") || ContainsIgnoreCase(rus, "яйц"))) return true;
 
             if (magnetOnlyMetal &&
-                (raw.Contains("ore") || raw.Contains("ingot") || raw.Contains("scrap") || raw.Contains("metal")
-                 || raw.Contains("nail") || raw.Contains("bolt") || raw.Contains("hinge") || raw.Contains("plank")
-                 || raw.Contains("plastic") || raw.Contains("vine") || raw.Contains("stone") || raw.Contains("clay")
-                 || raw.Contains("sand") || raw.Contains("dirt") || rus.Contains("руда") || rus.Contains("слиток")
-                 || rus.Contains("хлам") || rus.Contains("металл") || rus.Contains("доск") || rus.Contains("пластик"))) return true;
+                (ContainsIgnoreCase(raw, "ore") || ContainsIgnoreCase(raw, "ingot") || ContainsIgnoreCase(raw, "scrap") || ContainsIgnoreCase(raw, "metal")
+                 || ContainsIgnoreCase(raw, "nail") || ContainsIgnoreCase(raw, "bolt") || ContainsIgnoreCase(raw, "hinge") || ContainsIgnoreCase(raw, "plank")
+                 || ContainsIgnoreCase(raw, "plastic") || ContainsIgnoreCase(raw, "vine") || ContainsIgnoreCase(raw, "stone") || ContainsIgnoreCase(raw, "clay")
+                 || ContainsIgnoreCase(raw, "sand") || ContainsIgnoreCase(raw, "dirt") || ContainsIgnoreCase(rus, "руда") || ContainsIgnoreCase(rus, "слиток")
+                 || ContainsIgnoreCase(rus, "хлам") || ContainsIgnoreCase(rus, "металл") || ContainsIgnoreCase(rus, "доск") || ContainsIgnoreCase(rus, "пластик"))) return true;
 
             if (magnetOnlyRare &&
-                (raw.Contains("titanium") || raw.Contains("explosive") || raw.Contains("vinegoo")
-                 || raw.Contains("battery") || raw.Contains("circuit") || rus.Contains("титан")
-                 || rus.Contains("взрывчатк") || rus.Contains("клей") || rus.Contains("батаре"))) return true;
+                (ContainsIgnoreCase(raw, "titanium") || ContainsIgnoreCase(raw, "explosive") || ContainsIgnoreCase(raw, "vinegoo")
+                 || ContainsIgnoreCase(raw, "battery") || ContainsIgnoreCase(raw, "circuit") || ContainsIgnoreCase(rus, "титан")
+                 || ContainsIgnoreCase(rus, "взрывчатк") || ContainsIgnoreCase(rus, "клей") || ContainsIgnoreCase(rus, "батаре"))) return true;
 
             return false;
         }
@@ -3070,10 +3084,10 @@ namespace RaftTrainer
                     if ((ent.transform.position - pp).sqrMagnitude > maxDistSqr) continue;
                     try { if (ent.stat_health != null && ent.stat_health.IsDead()) continue; } catch {}
 
-                    string n = ent.name.ToLower();
+                    string n = ent.name;
                     bool predator = false;
                     for (int k = 0; k < thermalKeywords.Length; k++)
-                        if (n.Contains(thermalKeywords[k])) { predator = true; break; }
+                        if (ContainsIgnoreCase(n, thermalKeywords[k])) { predator = true; break; }
                     if (!predator) continue;
 
                     ThermalTarget t;
@@ -3119,8 +3133,11 @@ namespace RaftTrainer
         }
 
         // ---------- КРЫСОЛОВ ----------
+        private float nextRatTime = 0f;
         private void KillRats()
         {
+            if (Time.time < nextRatTime) return;
+            nextRatTime = Time.time + 1.5f;
             try
             {
                 var host = ComponentManager<Network_Host>.Value;
@@ -3413,13 +3430,26 @@ namespace RaftTrainer
             {
                 Network_Player me = ComponentManager<Network_Player>.Value;
                 bagTargets.Clear();
-                var all = UnityEngine.Object.FindObjectsOfType<Network_Player>();
-                for (int i = 0; i < all.Length; i++)
+                if (cachedPlayers.Count > 0)
                 {
-                    Network_Player p = all[i];
-                    if (p == null) continue;
-                    if (me != null && p.gameObject == me.gameObject) continue;
-                    bagTargets.Add(p);
+                    for (int i = 0; i < cachedPlayers.Count; i++)
+                    {
+                        Network_Player p = cachedPlayers[i];
+                        if (p == null) continue;
+                        if (me != null && p.gameObject == me.gameObject) continue;
+                        bagTargets.Add(p);
+                    }
+                }
+                else
+                {
+                    var all = UnityEngine.Object.FindObjectsOfType<Network_Player>();
+                    for (int i = 0; i < all.Length; i++)
+                    {
+                        Network_Player p = all[i];
+                        if (p == null) continue;
+                        if (me != null && p.gameObject == me.gameObject) continue;
+                        bagTargets.Add(p);
+                    }
                 }
 
                 if (bagTargets.Count == 0)

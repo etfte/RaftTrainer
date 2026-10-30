@@ -191,12 +191,12 @@ namespace RaftTrainer
                     {
                         var ent = cachedEntities[i];
                         if (ent == null) continue;
-                        string n = ent.name.ToLower();
-                        if (!n.Contains("shark")) continue;
+                        string n = ent.name;
+                        if (!ContainsIgnoreCase(n, "shark")) continue;
                         if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
                         float cur = ent.stat_health != null ? ent.stat_health.Value : 100f;
                         float max = ent.stat_health != null ? ent.stat_health.Max : 100f;
-                        string sName = (n.Contains("varuna") || n.Contains("boss")) ? "Босс-акула" : "Акула";
+                        string sName = (ContainsIgnoreCase(n, "varuna") || ContainsIgnoreCase(n, "boss")) ? "Босс-акула" : "Акула";
                         espNameSharks.Add(new SharkESPInfo { transform = ent.transform, name = sName, health = cur, maxHealth = max });
                     }
                 }
@@ -542,62 +542,60 @@ namespace RaftTrainer
             }
             catch {}
 
-            string raw = p.name.Replace("(Clone)", "").Trim().ToLower();
-            if (raw.Contains("plank")) return "Доска";
-            if (raw.Contains("plastic")) return "Пластик";
-            if (raw.Contains("scrap")) return "Хлам";
-            if (raw.Contains("thatch") || raw.Contains("leaf")) return "Листья";
-            if (raw.Contains("rope")) return "Веревка";
-            if (raw.Contains("stone") || raw.Contains("rock")) return "Камень";
-            if (raw.Contains("clay")) return "Глина";
-            if (raw.Contains("sand")) return "Песок";
-            if (raw.Contains("ore_metal") || raw.Contains("metalore")) return "Руда металла";
-            if (raw.Contains("ingot_metal") || raw.Contains("metalingot")) return "Слиток металла";
-            if (raw.Contains("ore_copper") || raw.Contains("copperore")) return "Руда меди";
-            if (raw.Contains("ingot_copper") || raw.Contains("copperingot")) return "Слиток меди";
-            if (raw.Contains("titanium")) return "Титан";
-            if (raw.Contains("seaweed")) return "Водоросли";
-            if (raw.Contains("vinegoo")) return "Клей";
-            if (raw.Contains("feather")) return "Перо";
-            if (raw.Contains("nail")) return "Гвоздь";
-            if (raw.Contains("bolt")) return "Болт";
-            if (raw.Contains("hinge")) return "Петля";
-            if (raw.Contains("dirt")) return "Земля";
-            if (raw.Contains("clam")) return "Моллюск";
-            if (raw.Contains("potato")) return "Картофель";
-            if (raw.Contains("beet")) return "Свекла";
-            if (raw.Contains("meat")) return "Мясо";
-            if (raw.Contains("fish")) return "Рыба";
-            if (raw.Contains("mango")) return "Манго";
-            if (raw.Contains("coconut")) return "Кокос";
-            if (raw.Contains("watermelon")) return "Арбуз";
-            if (raw.Contains("pineapple")) return "Ананас";
-            if (raw.Contains("mushroom")) return "Гриб";
-            if (raw.Contains("battery")) return "Батарейка";
-            if (raw.Contains("barrel")) return "Бочка";
-            if (raw.Contains("crate") || raw.Contains("box")) return "Ящик";
+            string raw = p.name;
+            if (ContainsIgnoreCase(raw, "plank")) return "Доска";
+            if (ContainsIgnoreCase(raw, "plastic")) return "Пластик";
+            if (ContainsIgnoreCase(raw, "scrap")) return "Хлам";
+            if (ContainsIgnoreCase(raw, "thatch") || ContainsIgnoreCase(raw, "leaf")) return "Листья";
+            if (ContainsIgnoreCase(raw, "rope")) return "Веревка";
+            if (ContainsIgnoreCase(raw, "stone") || ContainsIgnoreCase(raw, "rock")) return "Камень";
+            if (ContainsIgnoreCase(raw, "clay")) return "Глина";
+            if (ContainsIgnoreCase(raw, "sand")) return "Песок";
+            if (ContainsIgnoreCase(raw, "ore_metal") || ContainsIgnoreCase(raw, "metalore")) return "Руда металла";
+            if (ContainsIgnoreCase(raw, "ingot_metal") || ContainsIgnoreCase(raw, "metalingot")) return "Слиток металла";
+            if (ContainsIgnoreCase(raw, "ore_copper") || ContainsIgnoreCase(raw, "copperore")) return "Руда меди";
+            if (ContainsIgnoreCase(raw, "ingot_copper") || ContainsIgnoreCase(raw, "copperingot")) return "Слиток меди";
+            if (ContainsIgnoreCase(raw, "titanium")) return "Титан";
+            if (ContainsIgnoreCase(raw, "seaweed")) return "Водоросли";
+            if (ContainsIgnoreCase(raw, "vinegoo")) return "Клей";
+            if (ContainsIgnoreCase(raw, "feather")) return "Перо";
+            if (ContainsIgnoreCase(raw, "nail")) return "Гвоздь";
+            if (ContainsIgnoreCase(raw, "bolt")) return "Болт";
+            if (ContainsIgnoreCase(raw, "hinge")) return "Петля";
+            if (ContainsIgnoreCase(raw, "dirt")) return "Земля";
+            if (ContainsIgnoreCase(raw, "clam")) return "Моллюск";
+            if (ContainsIgnoreCase(raw, "potato")) return "Картофель";
+            if (ContainsIgnoreCase(raw, "beet")) return "Свекла";
+            if (ContainsIgnoreCase(raw, "meat")) return "Мясо";
+            if (ContainsIgnoreCase(raw, "fish")) return "Рыба";
+            if (ContainsIgnoreCase(raw, "mango")) return "Манго";
+            if (ContainsIgnoreCase(raw, "coconut")) return "Кокос";
+            if (ContainsIgnoreCase(raw, "watermelon")) return "Арбуз";
+            if (ContainsIgnoreCase(raw, "pineapple")) return "Ананас";
+            if (ContainsIgnoreCase(raw, "mushroom")) return "Гриб";
+            if (ContainsIgnoreCase(raw, "battery")) return "Батарейка";
+            if (ContainsIgnoreCase(raw, "barrel")) return "Бочка";
+            if (ContainsIgnoreCase(raw, "crate") || ContainsIgnoreCase(raw, "box")) return "Ящик";
             return p.name.Replace("(Clone)", "").Trim();
         }
 
         private static Color GetItemTagColor(string rus)
         {
-            string low = rus.ToLower();
-            if (low.Contains("доска") || low.Contains("дерево")) return new Color(0.9f, 0.7f, 0.4f);
-            if (low.Contains("пластик")) return new Color(0.4f, 0.85f, 1f);
-            if (low.Contains("хлам") || low.Contains("металл")) return new Color(0.75f, 0.8f, 0.9f);
-            if (low.Contains("титан")) return new Color(0.3f, 1f, 0.7f);
+            if (ContainsIgnoreCase(rus, "доска") || ContainsIgnoreCase(rus, "дерево")) return new Color(0.9f, 0.7f, 0.4f);
+            if (ContainsIgnoreCase(rus, "пластик")) return new Color(0.4f, 0.85f, 1f);
+            if (ContainsIgnoreCase(rus, "хлам") || ContainsIgnoreCase(rus, "металл")) return new Color(0.75f, 0.8f, 0.9f);
+            if (ContainsIgnoreCase(rus, "титан")) return new Color(0.3f, 1f, 0.7f);
             return new Color(0.85f, 0.85f, 0.95f);
         }
 
         private static Color GetOreTagColor(string rus)
         {
-            string low = rus.ToLower();
-            if (low.Contains("титан")) return new Color(0.3f, 1f, 0.6f);
-            if (low.Contains("металл")) return new Color(0.4f, 0.8f, 1f);
-            if (low.Contains("мед")) return new Color(1f, 0.6f, 0.2f);
-            if (low.Contains("водоросл")) return new Color(0.4f, 1f, 0.3f);
-            if (low.Contains("глин") || low.Contains("песок")) return new Color(0.9f, 0.9f, 0.4f);
-            if (low.Contains("моллюск")) return new Color(0.9f, 0.4f, 1f);
+            if (ContainsIgnoreCase(rus, "титан")) return new Color(0.3f, 1f, 0.6f);
+            if (ContainsIgnoreCase(rus, "металл")) return new Color(0.4f, 0.8f, 1f);
+            if (ContainsIgnoreCase(rus, "мед")) return new Color(1f, 0.6f, 0.2f);
+            if (ContainsIgnoreCase(rus, "водоросл")) return new Color(0.4f, 1f, 0.3f);
+            if (ContainsIgnoreCase(rus, "глин") || ContainsIgnoreCase(rus, "песок")) return new Color(0.9f, 0.9f, 0.4f);
+            if (ContainsIgnoreCase(rus, "моллюск")) return new Color(0.9f, 0.4f, 1f);
             return new Color(0.2f, 0.9f, 1f);
         }
     }

@@ -43,6 +43,17 @@ namespace RaftTrainer
 
     public partial class TrainerGUI : MonoBehaviour
     {
+        public static bool ContainsIgnoreCase(string source, string pattern)
+        {
+            if (source == null || pattern == null) return false;
+            return source.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsPlankItem(string n)
+        {
+            return ContainsIgnoreCase(n, "plank");
+        }
+
         // Reflection Cache for High Performance
         private static readonly FieldInfo fMeleeDamage = typeof(MeleeWeapon).GetField("damage", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
         private static readonly FieldInfo fMeleeInv = typeof(MeleeWeapon).GetField("goThroughInvurnability", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
@@ -843,11 +854,12 @@ namespace RaftTrainer
             {
                 var all = ItemManager.GetAllItems();
                 if (all == null) return null;
-                foreach (var item in all)
+                int count = all.Count;
+                for (int i = 0; i < count; i++)
                 {
+                    var item = all[i];
                     if (item == null || string.IsNullOrEmpty(item.UniqueName)) continue;
-                    string un = item.UniqueName.ToLower();
-                    if (un.Contains(keyA) || un.Contains(keyB)) return item;
+                    if (ContainsIgnoreCase(item.UniqueName, keyA) || (keyB != null && ContainsIgnoreCase(item.UniqueName, keyB))) return item;
                 }
             }
             catch {}
@@ -1063,7 +1075,7 @@ namespace RaftTrainer
                     if (machine == null || machine is Block_CookingStand_Purifier) continue;
                     bool isSmelter = machine is Block_CookingStand_Smelter;
                     if (isSmelter ? !autoSmelter : !autoCooker) continue;
-                    if (Vector3.Distance(machine.transform.position, pp) > autoLogisticsRadius) continue;
+                    if ((machine.transform.position - pp).sqrMagnitude > rSqr) continue;
 
                     if (machine.cookingSlots != null)
                     {
@@ -1080,7 +1092,7 @@ namespace RaftTrainer
                     {
                         Storage_Small fuelChest;
                         string fuelName;
-                        if (FindChestItem(chests, n => n.ToLower().Contains("plank"), out fuelChest, out fuelName) && MoveOneFromChest(fuelChest, fuelName, player))
+                        if (FindChestItem(chests, IsPlankItem, out fuelChest, out fuelName) && MoveOneFromChest(fuelChest, fuelName, player))
                         {
                             if (machine.IncrementFuel(1, player)) moves++;
                             else ReturnToChest(fuelChest, fuelName, player);
@@ -1097,7 +1109,7 @@ namespace RaftTrainer
                             if (itemSlot == null || !itemSlot.HasValidItemInstance() || itemSlot.itemInstance.baseItem == null) continue;
 
                             Item_Base food = itemSlot.itemInstance.baseItem;
-                            if (isSmelter && food.UniqueName.ToLower().Contains("plank")) continue;
+                            if (isSmelter && ContainsIgnoreCase(food.UniqueName, "plank")) continue;
 
                             CookingSlot[] freeSlots = machine.GetCookingSlotsForItem(food);
                             if (freeSlots == null || freeSlots.Length == 0) continue;
@@ -1971,8 +1983,8 @@ namespace RaftTrainer
                         var item = s.itemInstance;
                         if (item != null && item.baseItem != null && item.baseItem.settings_Inventory != null)
                         {
-                            string un = item.baseItem.UniqueName.ToLower();
-                            if (un.Contains("arrow") || un.Contains("ammo") || un.Contains("net_canister") || un.Contains("stone"))
+                            string un = item.baseItem.UniqueName;
+                            if (ContainsIgnoreCase(un, "arrow") || ContainsIgnoreCase(un, "ammo") || ContainsIgnoreCase(un, "net_canister") || ContainsIgnoreCase(un, "stone"))
                             {
                                 item.Amount = item.baseItem.settings_Inventory.StackSize;
                             }
@@ -3116,7 +3128,7 @@ namespace RaftTrainer
             if (filteredCatalogItems == null) filteredCatalogItems = new List<Item_Base>();
             else filteredCatalogItems.Clear();
 
-            string searchLower = spawnerSearch.ToLower().Trim();
+            string searchLower = spawnerSearch.Trim();
             int catCount = allCatalogItems.Count;
 
             for (int i = 0; i < catCount; i++)
@@ -3124,28 +3136,28 @@ namespace RaftTrainer
                 var item = allCatalogItems[i];
                 if (item == null) continue;
 
-                string title = GetItemTitle(item).ToLower();
-                string id = item.UniqueName.ToLower();
+                string title = GetItemTitle(item);
+                string id = item.UniqueName;
 
                 if (!string.IsNullOrEmpty(searchLower))
                 {
-                    if (!title.Contains(searchLower) && !id.Contains(searchLower)) continue;
+                    if (!ContainsIgnoreCase(title, searchLower) && !ContainsIgnoreCase(id, searchLower)) continue;
                 }
 
                 if (selectedCategory == 1) // Оружие / Инструменты
                 {
-                    if (!id.Contains("axe") && !id.Contains("hook") && !id.Contains("bow") && !id.Contains("machete") && 
-                        !id.Contains("spear") && !id.Contains("rod") && !id.Contains("shovel") && !id.Contains("bottle") &&
-                        !id.Contains("shears") && !id.Contains("backpack") && !id.Contains("flipper") && !id.Contains("oxygen") &&
-                        !id.Contains("arrow"))
+                    if (!ContainsIgnoreCase(id, "axe") && !ContainsIgnoreCase(id, "hook") && !ContainsIgnoreCase(id, "bow") && !ContainsIgnoreCase(id, "machete") && 
+                        !ContainsIgnoreCase(id, "spear") && !ContainsIgnoreCase(id, "rod") && !ContainsIgnoreCase(id, "shovel") && !ContainsIgnoreCase(id, "bottle") &&
+                        !ContainsIgnoreCase(id, "shears") && !ContainsIgnoreCase(id, "backpack") && !ContainsIgnoreCase(id, "flipper") && !ContainsIgnoreCase(id, "oxygen") &&
+                        !ContainsIgnoreCase(id, "arrow"))
                         continue;
                 }
                 else if (selectedCategory == 2) // Ресурсы
                 {
-                    if (!id.Contains("plank") && !id.Contains("plastic") && !id.Contains("scrap") && !id.Contains("thatch") &&
-                        !id.Contains("rope") && !id.Contains("ingot") && !id.Contains("ore") && !id.Contains("bolt") && 
-                        !id.Contains("hinge") && !id.Contains("clay") && !id.Contains("sand") && !id.Contains("stone") &&
-                        !id.Contains("glass") && !id.Contains("nail") && !id.Contains("metal") && !id.Contains("copper"))
+                    if (!ContainsIgnoreCase(id, "plank") && !ContainsIgnoreCase(id, "plastic") && !ContainsIgnoreCase(id, "scrap") && !ContainsIgnoreCase(id, "thatch") &&
+                        !ContainsIgnoreCase(id, "rope") && !ContainsIgnoreCase(id, "ingot") && !ContainsIgnoreCase(id, "ore") && !ContainsIgnoreCase(id, "bolt") && 
+                        !ContainsIgnoreCase(id, "hinge") && !ContainsIgnoreCase(id, "clay") && !ContainsIgnoreCase(id, "sand") && !ContainsIgnoreCase(id, "stone") &&
+                        !ContainsIgnoreCase(id, "glass") && !ContainsIgnoreCase(id, "nail") && !ContainsIgnoreCase(id, "metal") && !ContainsIgnoreCase(id, "copper"))
                         continue;
                 }
                 else if (selectedCategory == 3) // Еда
