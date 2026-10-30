@@ -18,17 +18,34 @@ namespace RaftTrainer
     {
         private readonly List<Landmark> cachedLandmarks = new List<Landmark>();
         private readonly List<EspTag> espTags = new List<EspTag>();
+        private readonly List<EspTag> espTagPool = new List<EspTag>();
+        private int espTagsCount = 0;
         private readonly List<PickupItem> espPickupScratch = new List<PickupItem>();
         private readonly List<SharkESPInfo> espNameSharks = new List<SharkESPInfo>();
         private readonly Dictionary<int, string> espNameCache = new Dictionary<int, string>();
+        private readonly HashSet<Transform> sharkSeenTransforms = new HashSet<Transform>();
         private Vector3 espSortOrigin = Vector3.zero;
         private float nextEspPlayersTime = 0f;
+        private float nextEspEntitiesTime = 0f;
         private float nextEspSharkTime = 0f;
         private float nextEspNameSharkTime = 0f;
         private float nextEspPickupTime = 0f;
         private float nextEspTreasureTime = 0f;
         private float nextEspLandmarkTime = 0f;
         private const int EspMaxLabels = 70;
+
+        private static readonly string[] DistStrings = new string[3001];
+        private static readonly GUIContent sharedContent = new GUIContent();
+        private static readonly Comparison<EspTag> TagDistComparison = CompareTagsByDistance;
+
+        static TrainerGUI()
+        {
+            for (int i = 0; i <= 3000; i++)
+            {
+                DistStrings[i] = "  " + i + "м";
+            }
+            InitMapGeometry();
+        }
 
         private int CompareItemsByDistance(PickupItem a, PickupItem b)
         {
@@ -55,14 +72,23 @@ namespace RaftTrainer
                 {
                     nextEspPlayersTime = now + 1f;
                     cachedPlayers.Clear();
-                    if (espPlayers)
+                    var players = UnityEngine.Object.FindObjectsOfType<Network_Player>();
+                    for (int i = 0; i < players.Length; i++)
                     {
-                        var players = UnityEngine.Object.FindObjectsOfType<Network_Player>();
-                        for (int i = 0; i < players.Length; i++)
-                        {
-                            var p = players[i];
-                            if (p != null && p.gameObject != player.gameObject) cachedPlayers.Add(p);
-                        }
+                        var p = players[i];
+                        if (p != null && p.gameObject != player.gameObject) cachedPlayers.Add(p);
+                    }
+                }
+
+                if (now >= nextEspEntitiesTime)
+                {
+                    nextEspEntitiesTime = now + 1f;
+                    cachedEntities.Clear();
+                    var ents = UnityEngine.Object.FindObjectsOfType<Network_Entity>();
+                    for (int i = 0; i < ents.Length; i++)
+                    {
+                        var ent = ents[i];
+                        if (ent != null && ent.gameObject != player.gameObject) cachedEntities.Add(ent);
                     }
                 }
 
@@ -82,7 +108,7 @@ namespace RaftTrainer
                 {
                     nextEspTreasureTime = now + 2f;
                     cachedTreasures.Clear();
-                    if (espTreasures)
+                    if (espTreasures || instantTreasureDig)
                     {
                         var treasures = UnityEngine.Object.FindObjectsOfType<TreasurePoint>();
                         for (int i = 0; i < treasures.Length; i++)
@@ -114,7 +140,8 @@ namespace RaftTrainer
             cachedSharksInfo.Clear();
             if (!espShark) return;
 
-            var seen = new HashSet<Transform>();
+            var seen = sharkSeenTransforms;
+            seen.Clear();
             var sharks = UnityEngine.Object.FindObjectsOfType<Shark>();
             for (int i = 0; i < sharks.Length; i++)
             {
@@ -208,13 +235,37 @@ namespace RaftTrainer
             return n.Contains("ore") || n.Contains("clay") || n.Contains("sand") || n.Contains("seaweed") || n.Contains("clam") || n.Contains("dirt");
         }
 
+        private void AddEspTag(Vector3 position, string label, Color col, float maxDist, float buildDist, float offset = 0f)
+        {
+            EspTag tag;
+            if (espTagsCount < espTagPool.Count)
+            {
+                tag = espTagPool[espTagsCount];
+            }
+            else
+            {
+                tag = new EspTag();
+                espTagPool.Add(tag);
+            }
+            espTagsCount++;
+
+            tag.Position = position;
+            tag.Label = label;
+            tag.Col = col;
+            tag.MaxDist = maxDist;
+            tag.Offset = offset;
+            tag.BuildDist = buildDist;
+        }
+
         private void BuildEspTags(Vector3 pp)
         {
             espTags.Clear();
+            espTagsCount = 0;
 
             if (espRaft && cachedRaft != null)
             {
-                espTags.Add(MakeEspTag(cachedRaft.transform.position + Vector3.up * 2f, "ПЛОТ", new Color(0.25f, 0.85f, 1f), 2000f, pp));
+                Vector3 rPos = cachedRaft.transform.position + Vector3.up * 2f;
+                AddEspTag(rPos, "ПЛОТ", new Color(0.25f, 0.85f, 1f), 2000f, Vector3.Distance(rPos, pp));
             }
 
             if (espPlayers)
@@ -225,7 +276,8 @@ namespace RaftTrainer
                     if (p == null) continue;
                     string pName = "Игрок";
                     if (p.playerNameTextMesh != null && !string.IsNullOrEmpty(p.playerNameTextMesh.text)) pName = p.playerNameTextMesh.text;
-                    espTags.Add(MakeEspTag(p.transform.position + Vector3.up * 1.8f, "ИГРОК " + pName, new Color(0.2f, 1f, 0.4f), 2000f, pp));
+                    Vector3 pPos = p.transform.position + Vector3.up * 1.8f;
+                    AddEspTag(pPos, "ИГРОК " + pName, new Color(0.2f, 1f, 0.4f), 2000f, Vector3.Distance(pPos, pp));
                 }
             }
 
@@ -236,7 +288,8 @@ namespace RaftTrainer
                     var info = cachedSharksInfo[i];
                     if (info == null || info.transform == null) continue;
                     string label = info.name + " " + info.health.ToString("F0") + "/" + info.maxHealth.ToString("F0") + " HP";
-                    espTags.Add(MakeEspTag(info.transform.position + Vector3.up * 0.8f, label, new Color(1f, 0.25f, 0.35f), 2000f, pp));
+                    Vector3 sPos = info.transform.position + Vector3.up * 0.8f;
+                    AddEspTag(sPos, label, new Color(1f, 0.25f, 0.35f), 2000f, Vector3.Distance(sPos, pp));
                 }
             }
 
@@ -248,14 +301,16 @@ namespace RaftTrainer
                     if (p == null) continue;
                     string n = p.name.ToLower();
                     bool box = n.Contains("barrel") || n.Contains("crate") || n.Contains("box");
+                    Vector3 iPos = p.transform.position + Vector3.up * 0.3f;
+                    float d = Vector3.Distance(iPos, pp);
                     if (box)
                     {
-                        if (espBarrels) espTags.Add(MakeEspTag(p.transform.position + Vector3.up * 0.3f, n.Contains("barrel") ? "БОЧКА" : "ЯЩИК", new Color(1f, 0.85f, 0.2f), espItemMaxDist, pp));
+                        if (espBarrels) AddEspTag(iPos, n.Contains("barrel") ? "БОЧКА" : "ЯЩИК", new Color(1f, 0.85f, 0.2f), espItemMaxDist, d);
                     }
                     else if (espAllItems)
                     {
                         string rus = GetRussianItemName(p);
-                        espTags.Add(MakeEspTag(p.transform.position + Vector3.up * 0.3f, rus, GetItemTagColor(rus), espItemMaxDist, pp));
+                        AddEspTag(iPos, rus, GetItemTagColor(rus), espItemMaxDist, d);
                     }
                 }
             }
@@ -267,7 +322,8 @@ namespace RaftTrainer
                     var p = cachedOres[i];
                     if (p == null) continue;
                     string rus = GetRussianItemName(p);
-                    espTags.Add(MakeEspTag(p.transform.position, "РУДА " + rus, GetOreTagColor(rus), espOreMaxDist, pp));
+                    Vector3 oPos = p.transform.position;
+                    AddEspTag(oPos, "РУДА " + rus, GetOreTagColor(rus), espOreMaxDist, Vector3.Distance(oPos, pp));
                 }
             }
 
@@ -277,7 +333,8 @@ namespace RaftTrainer
                 {
                     var tp = cachedTreasures[i];
                     if (tp == null) continue;
-                    espTags.Add(MakeEspTag(tp.transform.position, "КЛАД", new Color(1f, 0.85f, 0.1f), 120f, pp));
+                    Vector3 tPos = tp.transform.position;
+                    AddEspTag(tPos, "КЛАД", new Color(1f, 0.85f, 0.1f), 120f, Vector3.Distance(tPos, pp));
                 }
             }
 
@@ -285,13 +342,19 @@ namespace RaftTrainer
             {
                 for (int i = 0; i < waypoints.Count; i++)
                 {
-                    espTags.Add(MakeEspTag(waypoints[i].position + Vector3.up * 2f, "ТОЧКА " + waypoints[i].name, new Color(0.2f, 0.9f, 1f), 3000f, pp));
+                    Vector3 wPos = waypoints[i].position + Vector3.up * 2f;
+                    AddEspTag(wPos, "ТОЧКА " + waypoints[i].name, new Color(0.2f, 0.9f, 1f), 3000f, Vector3.Distance(wPos, pp));
                 }
+            }
+
+            for (int i = 0; i < espTagsCount; i++)
+            {
+                espTags.Add(espTagPool[i]);
             }
 
             AppendV13EspTags(pp);
 
-            espTags.Sort(CompareTagsByDistance);
+            espTags.Sort(TagDistComparison);
         }
 
         private EspTag MakeEspTag(Vector3 position, string label, Color col, float maxDist, Vector3 origin)
@@ -301,21 +364,28 @@ namespace RaftTrainer
 
         private void DrawEspOverlay()
         {
-            Camera cam = Camera.main;
+            Camera cam = GetCachedCamera();
             if (cam == null || espTags.Count == 0) return;
 
             Vector3 camPos = cam.transform.position;
+            Vector3 camFwd = cam.transform.forward;
             int drawn = 0;
-            for (int i = 0; i < espTags.Count && drawn < EspMaxLabels; i++)
+            int count = espTags.Count;
+            for (int i = 0; i < count && drawn < EspMaxLabels; i++)
             {
                 EspTag tag = espTags[i];
-                float dist = Vector3.Distance(camPos, tag.Position);
+                Vector3 toTag = tag.Position - camPos;
+                if (Vector3.Dot(camFwd, toTag) <= 0.1f) continue;
+
+                float dist = toTag.magnitude;
                 if (dist > tag.MaxDist) continue;
 
                 Vector3 sp = cam.WorldToScreenPoint(tag.Position + Vector3.up * tag.Offset);
                 if (sp.z <= 0.3f || sp.x < -120f || sp.x > Screen.width + 120f || sp.y < -60f || sp.y > Screen.height + 60f) continue;
 
-                DrawEspLabel(sp, tag.Label + "  " + dist.ToString("F0") + "м", tag.Col);
+                int dInt = (int)dist;
+                string dStr = (dInt >= 0 && dInt <= 3000) ? DistStrings[dInt] : ("  " + dInt + "м");
+                DrawEspLabel(sp, tag.Label + dStr, tag.Col);
                 drawn++;
             }
 
@@ -326,12 +396,13 @@ namespace RaftTrainer
         {
             float x = screenPos.x;
             float y = Screen.height - screenPos.y;
-            Vector2 size = espBoxStyle.CalcSize(new GUIContent(text));
+            sharedContent.text = text;
+            Vector2 size = espBoxStyle.CalcSize(sharedContent);
             Rect rect = new Rect(x - size.x * 0.5f, y - size.y * 0.5f, size.x + 8f, size.y + 4f);
 
             Color oldCol = GUI.color;
             GUI.color = new Color(col.r, col.g, col.b, 1f);
-            GUI.Box(rect, text, espBoxStyle);
+            GUI.Box(rect, sharedContent, espBoxStyle);
             GUI.color = oldCol;
         }
 
@@ -340,13 +411,13 @@ namespace RaftTrainer
             if (wireframeBuilding && wireBlocks.Count > 0) DrawBlockOutlines(wireBlocks, true);
             if (selectMode && selectedBlocks.Count > 0) DrawBlockOutlines(selectedBlocks, false);
             if (rulerOn || hasRulerA) DrawRulerWorld();
-            if (sharkTrailOn && sharkTrail.Count > 0) { Camera tcam = Camera.main; if (tcam != null) DrawSharkTrail(tcam); }
-            if (thermalVision) { Camera tcam = Camera.main; if (tcam != null) DrawThermalOverlay(tcam); }
+            if (sharkTrailOn && sharkTrail.Count > 0) { Camera tcam = GetCachedCamera(); if (tcam != null) DrawSharkTrail(tcam); }
+            if (thermalVision) { Camera tcam = GetCachedCamera(); if (tcam != null) DrawThermalOverlay(tcam); }
         }
 
         private void DrawBlockOutlines(List<Block> list, bool byHealth)
         {
-            Camera cam = Camera.main;
+            Camera cam = GetCachedCamera();
             if (cam == null) return;
 
             Color prev = GUI.color;
@@ -381,7 +452,7 @@ namespace RaftTrainer
 
         private void DrawRulerWorld()
         {
-            Camera cam = Camera.main;
+            Camera cam = GetCachedCamera();
             if (cam == null || !hasRulerA) return;
 
             Color prev = GUI.color;

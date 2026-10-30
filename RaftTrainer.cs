@@ -128,7 +128,34 @@ namespace RaftTrainer
         private readonly List<PickupItem> cachedPickups = new List<PickupItem>();
         private readonly List<SharkESPInfo> cachedSharksInfo = new List<SharkESPInfo>();
         private readonly List<Network_Player> cachedPlayers = new List<Network_Player>();
+        private readonly List<Network_Entity> cachedEntities = new List<Network_Entity>();
         private Raft cachedRaft = null;
+        private Rigidbody cachedRaftRb = null;
+
+        // Camera Caching
+        private static Camera cachedCamera = null;
+        private static float nextCamCheckTime = 0f;
+
+        public static Camera GetCachedCamera()
+        {
+            float now = Time.time;
+            if (cachedCamera == null || !cachedCamera.gameObject.activeInHierarchy || now > nextCamCheckTime)
+            {
+                nextCamCheckTime = now + 1.0f;
+                cachedCamera = Camera.main;
+            }
+            return cachedCamera;
+        }
+
+        // High-Performance Execution Throttle Timers
+        private float nextArrowThrottleTime = 0f;
+        private float nextSharkAiThrottleTime = 0f;
+        private float nextToolsThrottleTime = 0f;
+        private float nextMachineryThrottleTime = 0f;
+        private float nextInventoryThrottleTime = 0f;
+        private bool lastClearWaterState = false;
+        private float nextClearWaterScanTime = 0f;
+        private float nextCalmSeaTime = 0f;
 
         // PLAYER & CRAFTING
         public bool godMode = true;
@@ -467,10 +494,17 @@ namespace RaftTrainer
                 catch {}
             }
 
-            // Infinite Durability
-            if (infiniteDurability && player.Inventory != null)
+            // Throttled Inventory Cheats (Durability, Ammo, Paint, Demolish)
+            if (Time.time > nextInventoryThrottleTime)
             {
-                ApplyInfiniteDurability(player.Inventory);
+                nextInventoryThrottleTime = Time.time + 0.35f;
+                if (player.Inventory != null)
+                {
+                    if (infiniteDurability) ApplyInfiniteDurability(player.Inventory);
+                    if (infiniteAmmo) ApplyInfiniteAmmo(player.Inventory);
+                    if (infinitePaint) ApplyInfinitePaint(player.Inventory);
+                }
+                if (instantDemolish) ApplyInstantDemolish(player);
             }
 
             // Weapon Damage (One-Hit or Multiplier)
@@ -483,10 +517,12 @@ namespace RaftTrainer
                 }
             }
 
-            // No Arrow Drop
-            if (noArrowDrop)
+            // Projectiles (No Arrow Drop & Multishot)
+            if ((noArrowDrop || multishotBow) && Time.time > nextArrowThrottleTime)
             {
-                ApplyNoArrowDrop();
+                nextArrowThrottleTime = Time.time + 0.12f;
+                if (noArrowDrop) ApplyNoArrowDrop();
+                if (multishotBow) ApplyMultishotBow(player);
             }
 
             if (killHostilesAura && Time.time > nextHostileAuraTime)
@@ -495,52 +531,35 @@ namespace RaftTrainer
                 ApplyKillHostilesAura(player);
             }
 
-            // Infinite Ammo
-            if (infiniteAmmo && player.Inventory != null)
+            // Shark AI & Ghost Mode
+            if ((pacifyShark || ghostMode) && Time.time > nextSharkAiThrottleTime)
             {
-                ApplyInfiniteAmmo(player.Inventory);
+                nextSharkAiThrottleTime = Time.time + 0.35f;
+                if (pacifyShark) ApplyPacifyShark();
+                if (ghostMode) ApplyGhostMode(player);
+            }
+            else if (!ghostMode && player.gameObject.tag != "Player")
+            {
+                player.gameObject.tag = "Player";
             }
 
-            // Pacify Shark (Disable attacks on player and raft)
-            if (pacifyShark)
+            // Gathering, Mining, Fishing Bite, Taming, Shovel Dig
+            if (Time.time > nextToolsThrottleTime)
             {
-                ApplyPacifyShark();
+                nextToolsThrottleTime = Time.time + 0.3f;
+                if (instantHarvest || fastHook || fastChop) ApplyInstantHarvest(player);
+                if (instantFishing) ApplyInstantFishing();
+                if (instantTame) ApplyInstantTame();
+                if (instantTreasureDig) ApplyInstantShovelDig(player);
             }
 
-            // Instant Gathering & Mining
-            if (instantHarvest || fastHook || fastChop)
+            // Automation: Instant Smelt/Cook, Batteries, Fuel
+            if (Time.time > nextMachineryThrottleTime)
             {
-                ApplyInstantHarvest(player);
-            }
-
-            // Automation: Instant Smelt & Cook
-            if (instantSmeltCook)
-            {
-                ApplyInstantSmeltAndCook();
-            }
-
-            // Automation: Infinite Batteries
-            if (infiniteBattery)
-            {
-                ApplyInfiniteBatteries();
-            }
-
-            // Automation: Infinite Fuel in Engines
-            if (infiniteFuel)
-            {
-                ApplyInfiniteFuel();
-            }
-
-            // Fishing: Instant Bite
-            if (instantFishing)
-            {
-                ApplyInstantFishing();
-            }
-
-            // Animals: Instant Taming
-            if (instantTame)
-            {
-                ApplyInstantTame();
+                nextMachineryThrottleTime = Time.time + 0.45f;
+                if (instantSmeltCook) ApplyInstantSmeltAndCook();
+                if (infiniteBattery) ApplyInfiniteBatteries();
+                if (infiniteFuel) ApplyInfiniteFuel();
             }
 
             // Item Magnet
@@ -567,21 +586,13 @@ namespace RaftTrainer
                 WaterAllCrops();
             }
 
+            // Freeze Raft & Tailwind
+            if (freezeRaft) ApplyFreezeRaft();
+            if (alwaysTailwind) ApplyAlwaysTailwind();
 
-
-            // Freeze Raft
-            if (freezeRaft)
+            if (autoFishing && Time.time > nextAutoFishTime)
             {
-                ApplyFreezeRaft();
-            }
-
-            if (alwaysTailwind)
-            {
-                ApplyAlwaysTailwind();
-            }
-
-            if (autoFishing)
-            {
+                nextAutoFishTime = Time.time + 1.6f;
                 ApplyAutoFishing(player);
             }
 
@@ -591,25 +602,14 @@ namespace RaftTrainer
                 ApplyInstantDomesticProduction();
             }
 
-            if (infinitePaint && player.Inventory != null)
-            {
-                ApplyInfinitePaint(player.Inventory);
-            }
-
-            // Night Vision
+            // Night Vision & Clear Water
             UpdateNightVision(player);
-
-            // Clear Water
             UpdateClearWater();
 
             // V10 TITAN AUTOMATION HOOKS
             if (triggerbot) ApplyTriggerbot(player);
-            if (multishotBow) ApplyMultishotBow(player);
-            ApplyGhostMode(player);
-            if (instantDemolish) ApplyInstantDemolish(player);
             HandleZoom(player);
             UpdateSubseaFloodlight(player);
-            if (instantTreasureDig) ApplyInstantShovelDig(player);
 
             // Throttled V10 Periodic Scans (0.35s)
             if (Time.time > nextV10ThrottleTime)
@@ -1200,14 +1200,14 @@ namespace RaftTrainer
         {
             try
             {
-                var raft = ComponentManager<Raft>.Value;
-                if (raft == null) return;
-                var rb = raft.GetComponent<Rigidbody>();
-                if (rb == null) return;
+                if (cachedRaft == null) cachedRaft = ComponentManager<Raft>.Value;
+                if (cachedRaft == null) return;
+                if (cachedRaftRb == null) cachedRaftRb = cachedRaft.GetComponent<Rigidbody>();
+                if (cachedRaftRb == null) return;
 
-                Vector3 levelAxis = Vector3.Cross(raft.transform.up, Vector3.up);
-                Vector3 rollSpin = Vector3.Scale(rb.angularVelocity, new Vector3(1f, 0f, 1f));
-                rb.AddTorque(levelAxis * (14f * stabilizerStrength) - rollSpin * 3.5f, ForceMode.Acceleration);
+                Vector3 levelAxis = Vector3.Cross(cachedRaft.transform.up, Vector3.up);
+                Vector3 rollSpin = Vector3.Scale(cachedRaftRb.angularVelocity, new Vector3(1f, 0f, 1f));
+                cachedRaftRb.AddTorque(levelAxis * (14f * stabilizerStrength) - rollSpin * 3.5f, ForceMode.Acceleration);
             }
             catch {}
         }
@@ -1223,9 +1223,15 @@ namespace RaftTrainer
                     {
                         savedRoughness = (float)fWaterRoughness.GetValue(null);
                         savedMaxRoughness = (float)fWaterMaxRoughness.GetValue(null);
+                        fWaterRoughness.SetValue(null, 0f);
+                        fWaterMaxRoughness.SetValue(null, 0f);
                     }
-                    fWaterRoughness.SetValue(null, 0f);
-                    fWaterMaxRoughness.SetValue(null, 0f);
+                    else if (Time.time > nextCalmSeaTime)
+                    {
+                        nextCalmSeaTime = Time.time + 0.35f;
+                        fWaterRoughness.SetValue(null, 0f);
+                        fWaterMaxRoughness.SetValue(null, 0f);
+                    }
                 }
                 else if (savedRoughness >= 0f)
                 {
@@ -1821,30 +1827,38 @@ namespace RaftTrainer
         {
             try
             {
-                if (clearWater)
+                if (clearWater != lastClearWaterState || Time.time > nextClearWaterScanTime)
                 {
-                    RenderSettings.fog = false;
-                    RenderSettings.fogDensity = 0f;
+                    lastClearWaterState = clearWater;
+                    nextClearWaterScanTime = Time.time + 3.0f;
 
-                    var uimes = UnityEngine.Object.FindObjectsOfType<UnderwaterIME>();
-                    foreach (var u in uimes)
+                    if (clearWater)
                     {
-                        if (u != null)
+                        RenderSettings.fog = false;
+                        RenderSettings.fogDensity = 0f;
+
+                        var uimes = UnityEngine.Object.FindObjectsOfType<UnderwaterIME>();
+                        for (int i = 0; i < uimes.Length; i++)
                         {
-                            u.enabled = false;
-                            u.EffectEnabled = false;
+                            var u = uimes[i];
+                            if (u != null)
+                            {
+                                u.enabled = false;
+                                u.EffectEnabled = false;
+                            }
                         }
                     }
-                }
-                else
-                {
-                    var uimes = UnityEngine.Object.FindObjectsOfType<UnderwaterIME>();
-                    foreach (var u in uimes)
+                    else
                     {
-                        if (u != null && !u.enabled)
+                        var uimes = UnityEngine.Object.FindObjectsOfType<UnderwaterIME>();
+                        for (int i = 0; i < uimes.Length; i++)
                         {
-                            u.enabled = true;
-                            u.EffectEnabled = true;
+                            var u = uimes[i];
+                            if (u != null && !u.enabled)
+                            {
+                                u.enabled = true;
+                                u.EffectEnabled = true;
+                            }
                         }
                     }
                 }
@@ -1941,13 +1955,13 @@ namespace RaftTrainer
             if (player == null || player.PickupScript == null) return;
             try
             {
-                var pickups = UnityEngine.Object.FindObjectsOfType<PickupItem>();
-                for (int i = 0; i < pickups.Length; i++)
+                float rSqr = autoLootRadius * autoLootRadius;
+                Vector3 pPos = player.transform.position;
+                for (int i = 0; i < cachedPickups.Count; i++)
                 {
-                    var p = pickups[i];
+                    var p = cachedPickups[i];
                     if (p == null || !p.gameObject.activeInHierarchy) continue;
-                    float dist = Vector3.Distance(p.transform.position, player.transform.position);
-                    if (dist <= autoLootRadius)
+                    if ((p.transform.position - pPos).sqrMagnitude <= rSqr)
                     {
                         player.PickupScript.PickupItem(p, true, false);
                     }
@@ -2383,19 +2397,19 @@ namespace RaftTrainer
             if (player == null) return;
             try
             {
-                var entities = UnityEngine.Object.FindObjectsOfType<Network_Entity>();
                 var host = ComponentManager<Network_Host>.Value;
                 Vector3 playerPos = player.transform.position;
+                float rSqr = hostileAuraRadius * hostileAuraRadius;
 
-                foreach (var ent in entities)
+                for (int i = 0; i < cachedEntities.Count; i++)
                 {
+                    var ent = cachedEntities[i];
                     if (ent == null || ent.gameObject == player.gameObject) continue;
 
                     // Don't kill domestic animals
                     if (ent.GetComponent<AI_NetworkBehaviour_Domestic>() != null) continue;
 
-                    float dist = Vector3.Distance(ent.transform.position, playerPos);
-                    if (dist <= hostileAuraRadius)
+                    if ((ent.transform.position - playerPos).sqrMagnitude <= rSqr)
                     {
                         if (ent.stat_health != null && !ent.stat_health.IsDead())
                         {
@@ -2609,16 +2623,16 @@ namespace RaftTrainer
 
                 if (!targetFound)
                 {
-                    var entities = UnityEngine.Object.FindObjectsOfType<Network_Entity>();
-                    foreach (var ent in entities)
+                    float maxDistSqr = aimbotRange * aimbotRange;
+                    for (int i = 0; i < cachedEntities.Count; i++)
                     {
+                        var ent = cachedEntities[i];
                         if (ent == null || ent.gameObject == player.gameObject || ent.GetComponent<Network_Player>() != null) continue;
                         if (ent.stat_health != null && ent.stat_health.IsDead()) continue;
 
                         Vector3 entPos = ent.transform.position + Vector3.up * 0.6f;
                         Vector3 dir = (entPos - player.CameraTransform.position);
-                        float dist = dir.magnitude;
-                        if (dist > aimbotRange) continue;
+                        if (dir.sqrMagnitude > maxDistSqr) continue;
 
                         float angle = Vector3.Angle(player.CameraTransform.forward, dir);
                         if (angle < closestAngle)
@@ -3274,10 +3288,14 @@ namespace RaftTrainer
             try
             {
                 if (player == null) return;
-                var axe = player.GetComponentInChildren<Axe>();
-                if (axe != null)
+                if (player.AxeScript != null)
                 {
-                    axe.chopBlockTime = 0.001f;
+                    player.AxeScript.chopBlockTime = 0.001f;
+                }
+                else
+                {
+                    var axe = player.GetComponentInChildren<Axe>();
+                    if (axe != null) axe.chopBlockTime = 0.001f;
                 }
             }
             catch {}
@@ -3603,12 +3621,13 @@ namespace RaftTrainer
                 var shovel = player.GetComponentInChildren<Shovel>();
                 if (shovel != null)
                 {
-                    var treasures = UnityEngine.Object.FindObjectsOfType<TreasurePoint>();
-                    for (int i = 0; i < treasures.Length; i++)
+                    Vector3 pPos = player.transform.position;
+                    float rSqr = 8f * 8f;
+                    for (int i = 0; i < cachedTreasures.Count; i++)
                     {
-                        var tp = treasures[i];
-                        if (tp == null) continue;
-                        if (Vector3.Distance(tp.transform.position, player.transform.position) < 8f)
+                        var tp = cachedTreasures[i];
+                        if (tp == null || !tp.gameObject.activeInHierarchy) continue;
+                        if ((tp.transform.position - pPos).sqrMagnitude < rSqr)
                         {
                             tp.ProgressExcevation(tp.excevationCount, true);
                             tp.SetExcevationProgress(tp.excevationCount, true);

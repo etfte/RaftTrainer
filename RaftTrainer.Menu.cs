@@ -1741,7 +1741,7 @@ namespace RaftTrainer
         // ==========================================
         private void DrawHudOverlays()
         {
-            Camera cam = Camera.main;
+            Camera cam = GetCachedCamera();
             if (cam == null) return;
 
             if (photoMode)

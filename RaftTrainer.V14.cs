@@ -610,7 +610,7 @@ namespace RaftTrainer
             if (!Input.GetMouseButtonDown(0) || showMenu) return;
             if (animalBrush) return; // ЛКМ занята кистью животных
 
-            Camera cam = Camera.main;
+            Camera cam = GetCachedCamera();
             if (cam == null) return;
 
             Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
@@ -1137,6 +1137,11 @@ namespace RaftTrainer
 
         private void RefreshActiveCheatNames()
         {
+            if (!hudActiveCheats)
+            {
+                if (activeCheatNames.Count > 0) activeCheatNames.Clear();
+                return;
+            }
             activeCheatNames.Clear();
             if (profileBoolFields == null) return;
             for (int i = 0; i < profileBoolFields.Length; i++)
@@ -1550,6 +1555,8 @@ namespace RaftTrainer
         // ---------- ТЕСТ ПРОИЗВОДИТЕЛЬНОСТИ ----------
         private void UpdatePerfMeter()
         {
+            if (!perfHud) return;
+
             if (perfWindowStart <= 0f) perfWindowStart = Time.time;
             perfFrames += 1f;
 
@@ -1566,8 +1573,7 @@ namespace RaftTrainer
             if (Time.time > nextPerfScanTime)
             {
                 nextPerfScanTime = Time.time + 3f;
-                try { entityCount = UnityEngine.Object.FindObjectsOfType<Transform>().Length; }
-                catch { entityCount = 0; }
+                entityCount = cachedEntities.Count + cachedPickups.Count + cachedPlayers.Count + cachedSharksInfo.Count;
                 try
                 {
                     int now = UnityEngine.Object.FindObjectsOfType<Block>().Length;
@@ -1636,8 +1642,13 @@ namespace RaftTrainer
         }
 
         // ---------- СЛЕД АКУЛ ----------
+        private float nextSharkTrailRecordTime = 0f;
+
         private void RecordSharkTrail()
         {
+            if (Time.time < nextSharkTrailRecordTime) return;
+            nextSharkTrailRecordTime = Time.time + 0.25f;
+
             for (int i = 0; i < cachedSharksInfo.Count && i < 3; i++)
             {
                 var info = cachedSharksInfo[i];
@@ -1647,8 +1658,9 @@ namespace RaftTrainer
                 tp.T = Time.time;
                 sharkTrail.Add(tp);
             }
-            while (sharkTrail.Count > 0 && Time.time - sharkTrail[0].T > 30f) sharkTrail.RemoveAt(0);
-            while (sharkTrail.Count > 400) sharkTrail.RemoveAt(0);
+            float cutoff = Time.time - 30f;
+            while (sharkTrail.Count > 0 && sharkTrail[0].T < cutoff) sharkTrail.RemoveAt(0);
+            while (sharkTrail.Count > 200) sharkTrail.RemoveAt(0);
         }
 
         private void DrawSharkTrail(Camera cam)
@@ -2175,7 +2187,7 @@ namespace RaftTrainer
             try
             {
                 posSlotPos[idx] = player.transform.position;
-                Camera cam = Camera.main;
+                Camera cam = GetCachedCamera();
                 posSlotYaw[idx] = cam != null ? cam.transform.eulerAngles.y : 0f;
                 posSlotHas[idx] = true;
                 statusMessage = "Слот " + (idx + 1) + ": позиция запомнена";
@@ -2414,10 +2426,9 @@ namespace RaftTrainer
 
                 // Кольца дистанции 250 / 500 / 1000 м
                 GUI.color = new Color(0.4f, 0.9f, 1f, 0.14f);
-                float[] rings = new float[] { 250f, 500f, 1000f };
-                for (int r = 0; r < rings.Length; r++)
+                for (int r = 0; r < MapRings.Length; r++)
                 {
-                    float rr = rings[r] * z;
+                    float rr = MapRings[r] * z;
                     if (rr < 6f || rr > half) continue;
                     DrawMapCircle(center, rr);
                 }
@@ -2435,15 +2446,25 @@ namespace RaftTrainer
             catch {}
         }
 
+        private static readonly float[] MapRings = new float[] { 250f, 500f, 1000f };
+        private static readonly Vector2[] CircleUnitPoints = new Vector2[16];
+
+        public static void InitMapGeometry()
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                float a = (float)i / 16f * 2f * Mathf.PI;
+                CircleUnitPoints[i] = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+            }
+        }
+
         private void DrawMapCircle(Vector2 center, float radius)
         {
-            int seg = 32;
-            for (int i = 0; i < seg; i++)
+            for (int i = 0; i < 16; i++)
             {
-                float a1 = (float)i / seg * 2f * Mathf.PI;
-                float a2 = (float)(i + 1) / seg * 2f * Mathf.PI;
-                Vector2 p1 = center + new Vector2(Mathf.Cos(a1) * radius, Mathf.Sin(a1) * radius);
-                Vector2 p2 = center + new Vector2(Mathf.Cos(a2) * radius, Mathf.Sin(a2) * radius);
+                int next = (i + 1) % 16;
+                Vector2 p1 = center + CircleUnitPoints[i] * radius;
+                Vector2 p2 = center + CircleUnitPoints[next] * radius;
                 DrawMapSegment(p1, p2, 1.5f);
             }
         }
@@ -2930,13 +2951,13 @@ namespace RaftTrainer
             try
             {
                 Vector3 pp = player.transform.position;
-                var entities = UnityEngine.Object.FindObjectsOfType<Network_Entity>();
-                for (int i = 0; i < entities.Length; i++)
+                float maxDistSqr = 100f * 100f;
+                for (int i = 0; i < cachedEntities.Count; i++)
                 {
-                    Network_Entity ent = entities[i];
+                    Network_Entity ent = cachedEntities[i];
                     if (ent == null || ent.transform == null) continue;
                     if (ent.gameObject == player.gameObject) continue;
-                    if (Vector3.Distance(ent.transform.position, pp) > 100f) continue;
+                    if ((ent.transform.position - pp).sqrMagnitude > maxDistSqr) continue;
                     try { if (ent.stat_health != null && ent.stat_health.IsDead()) continue; } catch {}
 
                     string n = ent.name.ToLower();
@@ -3104,10 +3125,9 @@ namespace RaftTrainer
             teammates.Clear();
             try
             {
-                var all = UnityEngine.Object.FindObjectsOfType<Network_Player>();
-                for (int i = 0; i < all.Length; i++)
+                for (int i = 0; i < cachedPlayers.Count; i++)
                 {
-                    Network_Player p = all[i];
+                    Network_Player p = cachedPlayers[i];
                     if (p == null) continue;
                     if (localPlayer != null && p.gameObject == localPlayer.gameObject) continue;
                     v14Players.Add(p);
